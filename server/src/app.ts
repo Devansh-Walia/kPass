@@ -4,6 +4,11 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import { errorHandler } from "./middleware/errorHandler.js";
 import authRoutes from "./routes/auth.js";
+import userRoutes from "./routes/users.js";
+import appRoutes from "./routes/apps.js";
+import meRoutes from "./routes/me.js";
+import financeRoutes from "./routes/finance.js";
+import crmRoutes from "./routes/crm.js";
 
 export const app = express();
 
@@ -13,5 +18,10 @@ app.use(cookieParser());
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/apps", appRoutes);
+app.use("/api/me", meRoutes);
+app.use("/api/apps/finance", financeRoutes);
+app.use("/api/apps/crm", crmRoutes);
 
 app.use(errorHandler);
