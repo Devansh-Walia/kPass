@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  users     User[]
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+model User {
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  passwordHash       String
+  firstName          String
+  lastName           String
+  role               Role      @default(MEMBER)
+  orgId              String
+  org                Organization @relation(fields: [orgId], references: [id])
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  apps               UserApp[]
+  assignedApps       UserApp[] @relation("AssignedBy")
+  transactions       Transaction[]
+  contacts           Contact[]
+  ownedDeals         Deal[]
+  activities         Activity[]
+}
+
+enum AppType {
+  FINANCE
+  CRM
+  MARKETING
+  IDEATION
+  CUSTOM
+}
+
+model App {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  icon        String?
+  type        AppType
+  route       String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  users       UserApp[]
+}
+
+model UserApp {
+  userId       String
+  appId        String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  app          App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  assignedAt   DateTime @default(now())
+  assignedById String
+  assignedBy   User     @relation("AssignedBy", fields: [assignedById], references: [id])
+
+  @@id([userId, appId])
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+model FinanceCategory {
+  id           String          @id @default(uuid())
+  name         String
+  type         TransactionType
+  transactions Transaction[]
+}
+
+model Transaction {
+  id          String          @id @default(uuid())
+  amount      Float
+  type        TransactionType
+  categoryId  String
+  category    FinanceCategory @relation(fields: [categoryId], references: [id])
+  description String?
+  date        DateTime
+  createdById String
+  createdBy   User            @relation(fields: [createdById], references: [id])
+  createdAt   DateTime        @default(now())
+}
+
+model Contact {
+  id          String     @id @default(uuid())
+  name        String
+  email       String?
+  phone       String?
+  company     String?
+  tags        String[]
+  notes       String?
+  createdById String
+  createdBy   User       @relation(fields: [createdById], references: [id])
+  deals       Deal[]
+  activities  Activity[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+enum DealStage {
+  LEAD
+  CONTACTED
+  PROPOSAL
+  CLOSED
+}
+
+model Deal {
+  id        String    @id @default(uuid())
+  title     String
+  value     Float
+  stage     DealStage @default(LEAD)
+  contactId String
+  contact   Contact   @relation(fields: [contactId], references: [id])
+  ownerId   String
+  owner     User      @relation(fields: [ownerId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+enum ActivityType {
+  CALL
+  EMAIL
+  NOTE
+  MEETING
+}
+
+model Activity {
+  id          String       @id @default(uuid())
+  contactId   String
+  contact     Contact      @relation(fields: [contactId], references: [id])
+  type        ActivityType
+  content     String
+  createdById String
+  createdBy   User         @relation(fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+}
