@@ -1,9 +1,12 @@
 import { useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../api/client";
+import { PasswordInput } from "../components/common/PasswordInput";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function ChangePassword() {
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState("");
@@ -15,6 +18,7 @@ export default function ChangePassword() {
     setLoading(true);
     try {
       await apiClient.patch("/me/password", { currentPassword, newPassword });
+      await refreshUser();
       navigate("/dashboard");
     } catch {
       setError("Failed to change password. Check your current password.");
@@ -38,12 +42,12 @@ export default function ChangePassword() {
             )}
             <div>
               <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1.5">Current Password</label>
-              <input id="currentPassword" type="password" required value={currentPassword} onChange={e => setCurrentPassword(e.target.value)}
+              <PasswordInput id="currentPassword" required value={currentPassword} onChange={e => setCurrentPassword(e.target.value)}
                 className="block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
             </div>
             <div>
               <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1.5">New Password</label>
-              <input id="newPassword" type="password" required minLength={8} value={newPassword} onChange={e => setNewPassword(e.target.value)}
+              <PasswordInput id="newPassword" required minLength={8} value={newPassword} onChange={e => setNewPassword(e.target.value)}
                 placeholder="Minimum 8 characters"
                 className="block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
             </div>

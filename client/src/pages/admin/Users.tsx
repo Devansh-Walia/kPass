@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { usersApi } from "../../api/users";
+import { PasswordInput } from "../../components/common/PasswordInput";
 
 interface User {
   id: string; email: string; firstName: string; lastName: string; role: string; isActive: boolean;
@@ -49,7 +50,7 @@ export default function Users() {
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
             <input type="email" placeholder="Email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
-            <input type="password" placeholder="Temp Password (min 8)" required minLength={8} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
+            <PasswordInput placeholder="Temp Password (min 8)" required minLength={8} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
             <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">

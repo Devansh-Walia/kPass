@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { usersApi } from "../../api/users";
 import { appsApi } from "../../api/apps";
+import { PasswordInput } from "../../components/common/PasswordInput";
 
 interface UserDetail {
   id: string; email: string; firstName: string; lastName: string; role: string; isActive: boolean;
@@ -132,8 +133,7 @@ export default function UserDetail() {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Reset Password</h3>
         <p className="text-sm text-gray-500 mb-4">Set a new temporary password. The user will be required to change it on next login.</p>
         <div className="flex gap-3">
-          <input
-            type="password"
+          <PasswordInput
             placeholder="New password (min 8 chars)"
             value={newPassword}
             onChange={e => setNewPassword(e.target.value)}
