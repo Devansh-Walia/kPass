@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
+import { AdBanner } from "../common/AdBanner";
 
 export function AppShell() {
   return (
@@ -10,6 +11,7 @@ export function AppShell() {
         <Sidebar />
         <main className="flex-1 p-6">
           <Outlet />
+          <AdBanner />
         </main>
       </div>
     </div>
