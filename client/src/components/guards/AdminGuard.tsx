@@ -1,0 +1,8 @@
+import { Navigate, Outlet } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+
+export function AdminGuard() {
+  const { user } = useAuth();
+  if (user?.role !== "ADMIN") return <Navigate to="/dashboard" replace />;
+  return <Outlet />;
+}
