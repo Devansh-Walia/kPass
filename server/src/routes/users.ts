@@ -60,4 +60,19 @@ router.delete("/:id/apps/:appId", async (req, res) => {
   res.json({ data: { message: "App access revoked" } });
 });
 
+// Admin reset user password
+router.patch("/:id/password", async (req, res) => {
+  const { password } = req.body;
+  if (!password || password.length < 8) {
+    return res.status(400).json({ error: "Password must be at least 8 characters" });
+  }
+  const { hashPassword } = await import("../lib/password.js");
+  const passwordHash = await hashPassword(password);
+  await prisma.user.update({
+    where: { id: req.params.id as string },
+    data: { passwordHash, mustChangePassword: true },
+  });
+  res.json({ data: { message: "Password reset successfully" } });
+});
+
 export default router;

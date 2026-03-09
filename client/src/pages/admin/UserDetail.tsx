@@ -17,6 +17,8 @@ export default function UserDetail() {
   const [allApps, setAllApps] = useState<App[]>([]);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ firstName: "", lastName: "", role: "" });
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordMsg, setPasswordMsg] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -45,6 +47,20 @@ export default function UserDetail() {
     setUser(u);
   };
 
+  const handleResetPassword = async () => {
+    if (!id || newPassword.length < 8) {
+      setPasswordMsg("Password must be at least 8 characters");
+      return;
+    }
+    try {
+      await usersApi.resetPassword(id, newPassword);
+      setPasswordMsg("Password reset. User will be prompted to change it on next login.");
+      setNewPassword("");
+    } catch {
+      setPasswordMsg("Failed to reset password");
+    }
+  };
+
   const handleRevokeApp = async (appId: string) => {
     if (!id) return;
     await usersApi.revokeApp(id, appId);
@@ -61,7 +77,7 @@ export default function UserDetail() {
     <div className="max-w-2xl">
       <button onClick={() => navigate("/admin/users")} className="text-sm text-gray-500 hover:text-gray-700 mb-4">&larr; Back to Users</button>
 
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold text-gray-900">{user.firstName} {user.lastName}</h2>
           <div className="flex gap-2">
@@ -88,7 +104,7 @@ export default function UserDetail() {
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">App Access</h3>
         <div className="space-y-2 mb-4">
           {user.apps.map(({ app }) => (
@@ -108,6 +124,32 @@ export default function UserDetail() {
                   className="text-sm px-3 py-1 border border-indigo-300 text-indigo-600 rounded hover:bg-indigo-50">{app.name}</button>
               ))}
             </div>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mt-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Reset Password</h3>
+        <p className="text-sm text-gray-500 mb-4">Set a new temporary password. The user will be required to change it on next login.</p>
+        <div className="flex gap-3">
+          <input
+            type="password"
+            placeholder="New password (min 8 chars)"
+            value={newPassword}
+            onChange={e => setNewPassword(e.target.value)}
+            minLength={8}
+            className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+          />
+          <button
+            onClick={handleResetPassword}
+            className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors"
+          >
+            Reset Password
+          </button>
+        </div>
+        {passwordMsg && (
+          <div className={`mt-3 text-sm px-4 py-2 rounded-lg ${passwordMsg.includes("Failed") || passwordMsg.includes("must") ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
+            {passwordMsg}
           </div>
         )}
       </div>

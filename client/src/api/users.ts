@@ -8,4 +8,5 @@ export const usersApi = {
   deactivate: (id: string) => apiClient.delete(`/users/${id}`).then(res => res.data.data),
   assignApps: (userId: string, appIds: string[]) => apiClient.post(`/users/${userId}/apps`, { appIds }),
   revokeApp: (userId: string, appId: string) => apiClient.delete(`/users/${userId}/apps/${appId}`),
+  resetPassword: (userId: string, password: string) => apiClient.patch(`/users/${userId}/password`, { password }),
 };

@@ -15,7 +15,8 @@ apiClient.interceptors.request.use(config => {
 });
 
 apiClient.interceptors.response.use(res => res, async err => {
-  if (err.response?.status === 401 && !err.config._retry) {
+  const isRefreshRequest = err.config?.url?.includes("/auth/refresh");
+  if (err.response?.status === 401 && !err.config._retry && !isRefreshRequest) {
     err.config._retry = true;
     try {
       const res = await apiClient.post("/auth/refresh");
@@ -23,7 +24,6 @@ apiClient.interceptors.response.use(res => res, async err => {
       return apiClient(err.config);
     } catch {
       accessToken = null;
-      window.location.href = "/login";
       return Promise.reject(err);
     }
   }
