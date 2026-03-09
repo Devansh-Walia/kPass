@@ -2,6 +2,7 @@ import express from "express";
 import "express-async-errors";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import path from "path";
 import { errorHandler } from "./middleware/errorHandler.js";
 import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/users.js";
@@ -38,3 +39,12 @@ app.use("/api/apps/finance", financeRoutes);
 app.use("/api/apps/crm", crmRoutes);
 
 app.use(errorHandler);
+
+// In production, serve the React client
+if (process.env.NODE_ENV === "production") {
+  const clientDist = path.join(__dirname, "../../client/dist");
+  app.use(express.static(clientDist));
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(clientDist, "index.html"));
+  });
+}

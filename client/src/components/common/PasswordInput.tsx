@@ -1,4 +1,4 @@
-import { useState, InputHTMLAttributes } from "react";
+import { useState, type InputHTMLAttributes } from "react";
 
 interface PasswordInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {}
 
