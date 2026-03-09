@@ -23,7 +23,7 @@ router.post("/", authenticate, requireAdmin, async (req, res) => {
 // PATCH /api/apps/:id — admin only
 router.patch("/:id", authenticate, requireAdmin, async (req, res) => {
   const body = updateAppSchema.parse(req.body);
-  const app = await appService.update(req.params.id, body);
+  const app = await appService.update(req.params.id as string, body);
   res.json({ data: app });
 });
 

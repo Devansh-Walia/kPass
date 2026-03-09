@@ -1,7 +1,17 @@
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+const url = new URL(process.env.DATABASE_URL!);
+const adapter = new PrismaPg({
+  host: url.hostname,
+  port: Number(url.port) || 5432,
+  database: url.pathname.slice(1),
+  user: url.username,
+  password: url.password,
+});
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   // Create organization
