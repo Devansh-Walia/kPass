@@ -41,4 +41,9 @@ router.delete("/tasks/:id", async (req, res) => {
   res.json({ data: { success: true } });
 });
 
+router.delete("/boards/:id", async (req, res) => {
+  await taskBoardService.deleteBoard(req.params.id as string);
+  res.json({ data: { message: "Board deleted" } });
+});
+
 export default router;

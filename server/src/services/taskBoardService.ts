@@ -32,4 +32,6 @@ export const taskBoardService = {
     }),
 
   deleteTask: (id: string) => prisma.taskCard.delete({ where: { id } }),
+
+  deleteBoard: (id: string) => prisma.board.delete({ where: { id } }),
 };

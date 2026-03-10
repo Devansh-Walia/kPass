@@ -13,4 +13,6 @@ export const taskBoardApi = {
     apiClient.patch(`/apps/task-board/tasks/${id}`, data).then((res) => res.data.data),
   deleteTask: (id: string) =>
     apiClient.delete(`/apps/task-board/tasks/${id}`).then((res) => res.data.data),
+  deleteBoard: (id: string) =>
+    apiClient.delete(`/apps/task-board/boards/${id}`).then((res) => res.data.data),
 };
