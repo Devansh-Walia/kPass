@@ -64,8 +64,6 @@ app.use("/api/apps/donor-mgmt", donorMgmtRoutes);
 app.use("/api/departments", departmentRoutes);
 app.use("/api/seed", seedRoutes);
 
-app.use(errorHandler);
-
 // In production, serve the React client
 if (process.env.NODE_ENV === "production") {
   const clientDist = path.join(__dirname, "../../client/dist");
@@ -74,3 +72,5 @@ if (process.env.NODE_ENV === "production") {
     res.sendFile(path.join(clientDist, "index.html"));
   });
 }
+
+app.use(errorHandler);
