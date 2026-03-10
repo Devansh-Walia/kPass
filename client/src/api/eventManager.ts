@@ -13,4 +13,6 @@ export const eventManagerApi = {
     apiClient.post(`/apps/event-manager/events/${eventId}/volunteers`, data).then((res) => res.data.data),
   removeVolunteer: (eventId: string, userId: string) =>
     apiClient.delete(`/apps/event-manager/events/${eventId}/volunteers/${userId}`).then((res) => res.data.data),
+  deleteEvent: (id: string) =>
+    apiClient.delete(`/apps/event-manager/events/${id}`).then((res) => res.data.data),
 };

@@ -44,4 +44,7 @@ export const eventManagerService = {
     prisma.eventVolunteer.delete({
       where: { eventId_userId: { eventId, userId } },
     }),
+
+  deleteEvent: (id: string) =>
+    prisma.event.delete({ where: { id } }),
 };

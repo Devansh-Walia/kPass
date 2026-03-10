@@ -41,4 +41,9 @@ router.delete("/events/:id/volunteers/:userId", async (req, res) => {
   res.json({ data: { success: true } });
 });
 
+router.delete("/events/:id", async (req, res) => {
+  await eventManagerService.deleteEvent(req.params.id as string);
+  res.json({ data: { success: true } });
+});
+
 export default router;

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { eventManagerApi } from "../../../api/eventManager";
 import { usersApi } from "../../../api/users";
 import { formatCurrency } from "../../../constants";
+import { useAuth } from "../../../contexts/AuthContext";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 
 interface EventVolunteer {
   id: string;
@@ -37,7 +39,15 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED: "bg-red-100 text-red-700",
 };
 
+const STATUS_TRANSITIONS: Record<string, string[]> = {
+  PLANNING: ["CONFIRMED", "CANCELLED"],
+  CONFIRMED: ["COMPLETED", "CANCELLED"],
+};
+
 export default function EventManagerPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
+
   const [tab, setTab] = useState<Tab>("upcoming");
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(false);
@@ -55,6 +65,22 @@ export default function EventManagerPage() {
   const [formError, setFormError] = useState("");
   const [formSubmitting, setFormSubmitting] = useState(false);
 
+  // Edit event
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [editBudget, setEditBudget] = useState("");
+  const [editError, setEditError] = useState("");
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
+  // Delete confirm
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Status change
+  const [statusUpdating, setStatusUpdating] = useState(false);
+
   // Add volunteer form
   const [volUserId, setVolUserId] = useState("");
   const [volRole, setVolRole] = useState("");
@@ -71,6 +97,7 @@ export default function EventManagerPage() {
       loadEventDetail(expandedId);
     } else {
       setExpandedEvent(null);
+      setEditingId(null);
     }
   }, [expandedId]);
 
@@ -137,6 +164,75 @@ export default function EventManagerPage() {
       setFormError(err.response?.data?.error || "Failed to create event.");
     } finally {
       setFormSubmitting(false);
+    }
+  }
+
+  function startEditing(ev: Event) {
+    setEditingId(ev.id);
+    setEditTitle(ev.title);
+    setEditDescription(ev.description || "");
+    setEditDate(ev.date.slice(0, 10));
+    setEditLocation(ev.location || "");
+    setEditBudget(ev.budget != null ? String(ev.budget) : "");
+    setEditError("");
+  }
+
+  function cancelEditing() {
+    setEditingId(null);
+    setEditError("");
+  }
+
+  async function handleEditEvent(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingId) return;
+    setEditError("");
+    if (!editTitle || !editDate) {
+      setEditError("Title and date are required.");
+      return;
+    }
+    setEditSubmitting(true);
+    try {
+      await eventManagerApi.updateEvent(editingId, {
+        title: editTitle,
+        description: editDescription || undefined,
+        date: editDate,
+        location: editLocation || undefined,
+        budget: editBudget ? parseFloat(editBudget) : undefined,
+      });
+      setEditingId(null);
+      loadEvents();
+      loadEventDetail(editingId);
+    } catch (err: any) {
+      setEditError(err.response?.data?.error || "Failed to update event.");
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
+  async function handleStatusChange(id: string, newStatus: string) {
+    setStatusUpdating(true);
+    try {
+      await eventManagerApi.updateEvent(id, { status: newStatus });
+      loadEvents();
+      loadEventDetail(id);
+    } catch {
+      // silent
+    } finally {
+      setStatusUpdating(false);
+    }
+  }
+
+  async function handleDeleteEvent() {
+    if (!deleteConfirmId) return;
+    try {
+      await eventManagerApi.deleteEvent(deleteConfirmId);
+      if (expandedId === deleteConfirmId) {
+        setExpandedId(null);
+      }
+      setDeleteConfirmId(null);
+      loadEvents();
+    } catch {
+      // silent
     }
   }
 
@@ -326,41 +422,159 @@ export default function EventManagerPage() {
                     <p className="text-gray-500 text-sm">Loading details...</p>
                   ) : expandedEvent ? (
                     <div className="space-y-4">
-                      {/* Event Info */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                        {expandedEvent.description && (
+                      {/* Edit Form */}
+                      {editingId === ev.id ? (
+                        <form
+                          onSubmit={handleEditEvent}
+                          className="bg-white border border-gray-200 rounded-lg p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+                        >
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Title</label>
+                            <input
+                              type="text"
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
+                            <input
+                              type="date"
+                              value={editDate}
+                              onChange={(e) => setEditDate(e.target.value)}
+                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Location</label>
+                            <input
+                              type="text"
+                              value={editLocation}
+                              onChange={(e) => setEditLocation(e.target.value)}
+                              placeholder="Optional"
+                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Budget</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={editBudget}
+                              onChange={(e) => setEditBudget(e.target.value)}
+                              placeholder="Optional"
+                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
                           <div className="sm:col-span-2">
-                            <span className="font-medium text-gray-600">Description: </span>
-                            <span className="text-gray-800">{expandedEvent.description}</span>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
+                            <input
+                              type="text"
+                              value={editDescription}
+                              onChange={(e) => setEditDescription(e.target.value)}
+                              placeholder="Optional description"
+                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
                           </div>
-                        )}
-                        <div>
-                          <span className="font-medium text-gray-600">Date: </span>
-                          <span className="text-gray-800">
-                            {new Date(expandedEvent.date).toLocaleDateString()}
-                          </span>
-                        </div>
-                        {expandedEvent.location && (
-                          <div>
-                            <span className="font-medium text-gray-600">Location: </span>
-                            <span className="text-gray-800">{expandedEvent.location}</span>
+                          <div className="flex items-end gap-2">
+                            <button
+                              type="submit"
+                              disabled={editSubmitting}
+                              className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
+                            >
+                              {editSubmitting ? "Saving..." : "Save Changes"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelEditing}
+                              className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                            >
+                              Cancel
+                            </button>
                           </div>
-                        )}
-                        {expandedEvent.budget != null && (
-                          <div>
-                            <span className="font-medium text-gray-600">Budget: </span>
-                            <span className="text-gray-800">
-                              {formatCurrency(expandedEvent.budget)}
-                            </span>
+                          {editError && (
+                            <p className="text-red-600 text-sm col-span-full">{editError}</p>
+                          )}
+                        </form>
+                      ) : (
+                        <>
+                          {/* Event Info */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                            {expandedEvent.description && (
+                              <div className="sm:col-span-2">
+                                <span className="font-medium text-gray-600">Description: </span>
+                                <span className="text-gray-800">{expandedEvent.description}</span>
+                              </div>
+                            )}
+                            <div>
+                              <span className="font-medium text-gray-600">Date: </span>
+                              <span className="text-gray-800">
+                                {new Date(expandedEvent.date).toLocaleDateString()}
+                              </span>
+                            </div>
+                            {expandedEvent.location && (
+                              <div>
+                                <span className="font-medium text-gray-600">Location: </span>
+                                <span className="text-gray-800">{expandedEvent.location}</span>
+                              </div>
+                            )}
+                            {expandedEvent.budget != null && (
+                              <div>
+                                <span className="font-medium text-gray-600">Budget: </span>
+                                <span className="text-gray-800">
+                                  {formatCurrency(expandedEvent.budget)}
+                                </span>
+                              </div>
+                            )}
+                            <div>
+                              <span className="font-medium text-gray-600">Created by: </span>
+                              <span className="text-gray-800">
+                                {expandedEvent.createdBy.firstName} {expandedEvent.createdBy.lastName}
+                              </span>
+                            </div>
                           </div>
-                        )}
-                        <div>
-                          <span className="font-medium text-gray-600">Created by: </span>
-                          <span className="text-gray-800">
-                            {expandedEvent.createdBy.firstName} {expandedEvent.createdBy.lastName}
-                          </span>
-                        </div>
-                      </div>
+
+                          {/* Action Buttons: Edit, Status Change, Delete */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              onClick={() => startEditing(expandedEvent)}
+                              className="px-3 py-1.5 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 transition-colors"
+                            >
+                              Edit Event
+                            </button>
+
+                            {/* Status Transitions */}
+                            {STATUS_TRANSITIONS[expandedEvent.status]?.map((nextStatus) => (
+                              <button
+                                key={nextStatus}
+                                onClick={() => handleStatusChange(ev.id, nextStatus)}
+                                disabled={statusUpdating}
+                                className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors disabled:opacity-50 ${
+                                  nextStatus === "CANCELLED"
+                                    ? "text-red-700 bg-red-50 border-red-200 hover:bg-red-100"
+                                    : "text-green-700 bg-green-50 border-green-200 hover:bg-green-100"
+                                }`}
+                              >
+                                {statusUpdating ? "Updating..." : `Mark ${nextStatus}`}
+                              </button>
+                            ))}
+
+                            {/* Delete (ADMIN only) */}
+                            {isAdmin && (
+                              <button
+                                onClick={() => setDeleteConfirmId(ev.id)}
+                                className="px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 transition-colors ml-auto"
+                              >
+                                Delete Event
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
 
                       {/* Volunteers */}
                       <div>
@@ -450,6 +664,16 @@ export default function EventManagerPage() {
           ))}
         </div>
       )}
+
+      {/* Delete Confirm Dialog */}
+      <ConfirmDialog
+        open={deleteConfirmId !== null}
+        title="Delete Event"
+        message="Are you sure you want to delete this event? This action cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={handleDeleteEvent}
+        onCancel={() => setDeleteConfirmId(null)}
+      />
     </div>
   );
 }
