@@ -20,6 +20,7 @@ import contentCalendarRoutes from "./routes/contentCalendar.js";
 import eventManagerRoutes from "./routes/eventManager.js";
 import workshopTrackerRoutes from "./routes/workshopTracker.js";
 import donorMgmtRoutes from "./routes/donorMgmt.js";
+import departmentRoutes from "./routes/departments.js";
 
 export const app = express();
 
@@ -57,6 +58,7 @@ app.use("/api/apps/content-calendar", contentCalendarRoutes);
 app.use("/api/apps/event-manager", eventManagerRoutes);
 app.use("/api/apps/workshop-tracker", workshopTrackerRoutes);
 app.use("/api/apps/donor-mgmt", donorMgmtRoutes);
+app.use("/api/departments", departmentRoutes);
 
 app.use(errorHandler);
 

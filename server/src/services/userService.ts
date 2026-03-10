@@ -19,6 +19,7 @@ export const userService = {
       select: {
         id: true, email: true, firstName: true, lastName: true, role: true, isActive: true, createdAt: true,
         apps: { include: { app: true } },
+        departments: { include: { department: true } },
       },
     }),
 
