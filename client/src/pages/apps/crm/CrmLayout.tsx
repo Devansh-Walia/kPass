@@ -1,5 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { crmApi } from "../../../api/crm";
+import { useAuth } from "../../../contexts/AuthContext";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 
 type Tab = "contacts" | "pipeline" | "activities";
 
@@ -152,12 +154,18 @@ function ContactsTab({
   contacts: Contact[];
   onRefresh: () => Promise<void>;
 }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedData, setExpandedData] = useState<Contact | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", company: "", notes: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", company: "", notes: "" });
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
 
   const filtered = useMemo(
     () =>
@@ -179,6 +187,59 @@ function ContactsTab({
       setExpandedData(data);
     } catch {
       setExpandedData(null);
+    }
+  };
+
+  const startEdit = (c: Contact, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingId(c.id);
+    setEditForm({
+      name: c.name,
+      email: c.email || "",
+      phone: c.phone || "",
+      company: c.company || "",
+      notes: c.notes || "",
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm({ name: "", email: "", phone: "", company: "", notes: "" });
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingId || !editForm.name.trim()) return;
+    setEditSubmitting(true);
+    try {
+      await crmApi.updateContact(editingId, {
+        name: editForm.name.trim(),
+        email: editForm.email.trim() || undefined,
+        phone: editForm.phone.trim() || undefined,
+        company: editForm.company.trim() || undefined,
+        notes: editForm.notes.trim() || undefined,
+      });
+      cancelEdit();
+      await onRefresh();
+    } catch {
+      /* silent */
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    try {
+      await crmApi.deleteContact(confirmDelete.id);
+      setConfirmDelete(null);
+      if (expandedId === confirmDelete.id) {
+        setExpandedId(null);
+        setExpandedData(null);
+      }
+      await onRefresh();
+    } catch {
+      /* silent */
     }
   };
 
@@ -206,6 +267,14 @@ function ContactsTab({
 
   return (
     <div className="space-y-4">
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Delete Contact"
+        message={`Are you sure you want to delete "${confirmDelete?.name}"? All associated deals and activities will also be deleted.`}
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(null)}
+      />
+
       <div className="flex items-center justify-between gap-4">
         <input
           type="text"
@@ -273,8 +342,8 @@ function ContactsTab({
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {["Name", "Email", "Phone", "Company", "Deals", "Activities"].map((h) => (
-                <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+              {["Name", "Email", "Phone", "Company", "Deals", "Activities", ...(isAdmin ? [""] : [])].map((h, i) => (
+                <th key={i} className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                   {h}
                 </th>
               ))}
@@ -283,20 +352,83 @@ function ContactsTab({
           <tbody className="divide-y divide-gray-200 bg-white">
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-500">
+                <td colSpan={isAdmin ? 7 : 6} className="px-4 py-6 text-center text-sm text-gray-500">
                   No contacts found.
                 </td>
               </tr>
             )}
-            {filtered.map((c) => (
-              <ContactRow
-                key={c.id}
-                contact={c}
-                expanded={expandedId === c.id}
-                expandedData={expandedId === c.id ? expandedData : null}
-                onToggle={() => toggleExpand(c.id)}
-              />
-            ))}
+            {filtered.map((c) =>
+              editingId === c.id ? (
+                <tr key={c.id}>
+                  <td colSpan={isAdmin ? 7 : 6} className="bg-indigo-50 px-4 py-4">
+                    <form onSubmit={handleEditSave} className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <input
+                          required
+                          placeholder="Name *"
+                          value={editForm.name}
+                          onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                          className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                        />
+                        <input
+                          type="email"
+                          placeholder="Email"
+                          value={editForm.email}
+                          onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                          className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                        />
+                        <input
+                          placeholder="Phone"
+                          value={editForm.phone}
+                          onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                          className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                        />
+                        <input
+                          placeholder="Company"
+                          value={editForm.company}
+                          onChange={(e) => setEditForm({ ...editForm, company: e.target.value })}
+                          className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                      <textarea
+                        placeholder="Notes"
+                        value={editForm.notes}
+                        onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                        rows={2}
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="submit"
+                          disabled={editSubmitting}
+                          className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                        >
+                          {editSubmitting ? "Saving..." : "Save"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  </td>
+                </tr>
+              ) : (
+                <ContactRow
+                  key={c.id}
+                  contact={c}
+                  expanded={expandedId === c.id}
+                  expandedData={expandedId === c.id ? expandedData : null}
+                  onToggle={() => toggleExpand(c.id)}
+                  onEdit={(e) => startEdit(c, e)}
+                  isAdmin={isAdmin}
+                  onDelete={() => setConfirmDelete({ id: c.id, name: c.name })}
+                />
+              )
+            )}
           </tbody>
         </table>
       </div>
@@ -309,11 +441,17 @@ function ContactRow({
   expanded,
   expandedData,
   onToggle,
+  onEdit,
+  isAdmin,
+  onDelete,
 }: {
   contact: Contact;
   expanded: boolean;
   expandedData: Contact | null;
   onToggle: () => void;
+  onEdit: (e: React.MouseEvent) => void;
+  isAdmin: boolean;
+  onDelete: () => void;
 }) {
   return (
     <>
@@ -321,16 +459,30 @@ function ContactRow({
         onClick={onToggle}
         className="cursor-pointer hover:bg-gray-50"
       >
-        <td className="px-4 py-3 text-sm font-medium text-gray-900">{contact.name}</td>
+        <td className="px-4 py-3 text-sm font-medium text-indigo-600 hover:text-indigo-800">
+          <button onClick={onEdit} className="text-left hover:underline">
+            {contact.name}
+          </button>
+        </td>
         <td className="px-4 py-3 text-sm text-gray-600">{contact.email || "-"}</td>
         <td className="px-4 py-3 text-sm text-gray-600">{contact.phone || "-"}</td>
         <td className="px-4 py-3 text-sm text-gray-600">{contact.company || "-"}</td>
         <td className="px-4 py-3 text-sm text-gray-600">{contact._count?.deals ?? 0}</td>
         <td className="px-4 py-3 text-sm text-gray-600">{contact._count?.activities ?? 0}</td>
+        {isAdmin && (
+          <td className="px-4 py-3 text-sm">
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100"
+            >
+              Delete
+            </button>
+          </td>
+        )}
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={6} className="bg-gray-50 px-6 py-4">
+          <td colSpan={isAdmin ? 7 : 6} className="bg-gray-50 px-6 py-4">
             {!expandedData ? (
               <p className="text-sm text-gray-500">Loading details...</p>
             ) : (
@@ -399,9 +551,15 @@ function PipelineTab({
   contacts: Contact[];
   onRefresh: () => Promise<void>;
 }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: "", value: "", contactId: "", stage: "LEAD" as Deal["stage"] });
   const [submitting, setSubmitting] = useState(false);
+  const [editingDealId, setEditingDealId] = useState<string | null>(null);
+  const [editDealForm, setEditDealForm] = useState({ title: "", value: "" });
+  const [editDealSubmitting, setEditDealSubmitting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string } | null>(null);
 
   const dealsByStage = useMemo(() => {
     const map: Record<Deal["stage"], Deal[]> = { LEAD: [], CONTACTED: [], PROPOSAL: [], CLOSED: [] };
@@ -441,8 +599,55 @@ function PipelineTab({
     }
   };
 
+  const startEditDeal = (deal: Deal) => {
+    setEditingDealId(deal.id);
+    setEditDealForm({ title: deal.title, value: String(deal.value) });
+  };
+
+  const cancelEditDeal = () => {
+    setEditingDealId(null);
+    setEditDealForm({ title: "", value: "" });
+  };
+
+  const handleEditDealSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDealId || !editDealForm.title.trim()) return;
+    setEditDealSubmitting(true);
+    try {
+      await crmApi.updateDeal(editingDealId, {
+        title: editDealForm.title.trim(),
+        value: parseFloat(editDealForm.value) || 0,
+      });
+      cancelEditDeal();
+      await onRefresh();
+    } catch {
+      /* silent */
+    } finally {
+      setEditDealSubmitting(false);
+    }
+  };
+
+  const handleDeleteDeal = async () => {
+    if (!confirmDelete) return;
+    try {
+      await crmApi.deleteDeal(confirmDelete.id);
+      setConfirmDelete(null);
+      await onRefresh();
+    } catch {
+      /* silent */
+    }
+  };
+
   return (
     <div className="space-y-4">
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Delete Deal"
+        message={`Are you sure you want to delete "${confirmDelete?.title}"?`}
+        onConfirm={handleDeleteDeal}
+        onCancel={() => setConfirmDelete(null)}
+      />
+
       <div className="flex justify-end">
         <button
           onClick={() => setShowForm(!showForm)}
@@ -512,14 +717,53 @@ function PipelineTab({
               {dealsByStage[stage].length === 0 && (
                 <p className="text-xs text-gray-400">No deals</p>
               )}
-              {dealsByStage[stage].map((deal) => (
-                <DealCard
-                  key={deal.id}
-                  deal={deal}
-                  currentStage={stage}
-                  onMove={moveDeal}
-                />
-              ))}
+              {dealsByStage[stage].map((deal) =>
+                editingDealId === deal.id ? (
+                  <form key={deal.id} onSubmit={handleEditDealSave} className="rounded border border-indigo-300 bg-white p-3 shadow-sm space-y-2">
+                    <input
+                      required
+                      placeholder="Title *"
+                      value={editDealForm.title}
+                      onChange={(e) => setEditDealForm({ ...editDealForm, title: e.target.value })}
+                      className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="Value"
+                      value={editDealForm.value}
+                      onChange={(e) => setEditDealForm({ ...editDealForm, value: e.target.value })}
+                      className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+                    />
+                    <div className="flex gap-1">
+                      <button
+                        type="submit"
+                        disabled={editDealSubmitting}
+                        className="rounded bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                      >
+                        {editDealSubmitting ? "..." : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelEditDeal}
+                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <DealCard
+                    key={deal.id}
+                    deal={deal}
+                    currentStage={stage}
+                    onMove={moveDeal}
+                    onEdit={() => startEditDeal(deal)}
+                    isAdmin={isAdmin}
+                    onDelete={() => setConfirmDelete({ id: deal.id, title: deal.title })}
+                  />
+                )
+              )}
             </div>
           </div>
         ))}
@@ -532,21 +776,32 @@ function DealCard({
   deal,
   currentStage,
   onMove,
+  onEdit,
+  isAdmin,
+  onDelete,
 }: {
   deal: Deal;
   currentStage: Deal["stage"];
   onMove: (id: string, stage: Deal["stage"]) => void;
+  onEdit: () => void;
+  isAdmin: boolean;
+  onDelete: () => void;
 }) {
   const stageIdx = STAGES.indexOf(currentStage);
 
   return (
     <div className="rounded border border-white bg-white p-3 shadow-sm">
-      <p className="text-sm font-medium text-gray-900">{deal.title}</p>
+      <p
+        onClick={onEdit}
+        className="cursor-pointer text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+      >
+        {deal.title}
+      </p>
       <p className="text-xs text-gray-500">${Number(deal.value).toLocaleString()}</p>
       {deal.contact && (
         <p className="text-xs text-gray-400">{deal.contact.name}</p>
       )}
-      <div className="mt-2 flex gap-1">
+      <div className="mt-2 flex items-center gap-1">
         {stageIdx > 0 && (
           <button
             onClick={() => onMove(deal.id, STAGES[stageIdx - 1])}
@@ -561,6 +816,14 @@ function DealCard({
             className="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-700 hover:bg-gray-300"
           >
             {STAGES[stageIdx + 1]} &rarr;
+          </button>
+        )}
+        {isAdmin && (
+          <button
+            onClick={onDelete}
+            className="ml-auto rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600 hover:bg-red-100"
+          >
+            Delete
           </button>
         )}
       </div>
@@ -579,9 +842,12 @@ function ActivitiesTab({
   contacts: Contact[];
   onRefresh: () => Promise<void>;
 }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ contactId: "", type: "NOTE" as Activity["type"], content: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; content: string } | null>(null);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -603,8 +869,27 @@ function ActivitiesTab({
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    try {
+      await crmApi.deleteActivity(confirmDelete.id);
+      setConfirmDelete(null);
+      await onRefresh();
+    } catch {
+      /* silent */
+    }
+  };
+
   return (
     <div className="space-y-4">
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Delete Activity"
+        message={`Are you sure you want to delete this activity?`}
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(null)}
+      />
+
       <div className="flex justify-end">
         <button
           onClick={() => setShowForm(!showForm)}
@@ -678,6 +963,14 @@ function ActivitiesTab({
                 <span> &middot; {new Date(a.createdAt).toLocaleString()}</span>
               </p>
             </div>
+            {isAdmin && (
+              <button
+                onClick={() => setConfirmDelete({ id: a.id, content: a.content })}
+                className="shrink-0 rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100"
+              >
+                Delete
+              </button>
+            )}
           </div>
         ))}
       </div>

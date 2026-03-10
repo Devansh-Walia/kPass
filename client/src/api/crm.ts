@@ -21,4 +21,10 @@ export const crmApi = {
       .then((res) => res.data.data),
   createActivity: (data: any) =>
     apiClient.post("/apps/crm/activities", data).then((res) => res.data.data),
+  deleteContact: (id: string) =>
+    apiClient.delete(`/apps/crm/contacts/${id}`).then((res) => res.data.data),
+  deleteDeal: (id: string) =>
+    apiClient.delete(`/apps/crm/deals/${id}`).then((res) => res.data.data),
+  deleteActivity: (id: string) =>
+    apiClient.delete(`/apps/crm/activities/${id}`).then((res) => res.data.data),
 };

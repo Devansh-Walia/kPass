@@ -33,4 +33,13 @@ export const crmService = {
 
   createActivity: (data: { contactId: string; type: any; content: string }, userId: string) =>
     prisma.activity.create({ data: { ...data, createdById: userId } }),
+
+  deleteContact: (id: string) =>
+    prisma.contact.delete({ where: { id } }),
+
+  deleteDeal: (id: string) =>
+    prisma.deal.delete({ where: { id } }),
+
+  deleteActivity: (id: string) =>
+    prisma.activity.delete({ where: { id } }),
 };

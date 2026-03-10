@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticate } from "../middleware/auth.js";
+import { authenticate, requireAdmin } from "../middleware/auth.js";
 import { requireAppAccess } from "../middleware/appAccess.js";
 import { crmService } from "../services/crmService.js";
 import { createContactSchema, updateContactSchema, createDealSchema, updateDealSchema, createActivitySchema } from "../validators/crm.js";
@@ -31,6 +31,11 @@ router.patch("/contacts/:id", async (req, res) => {
   res.json({ data: contact });
 });
 
+router.delete("/contacts/:id", requireAdmin, async (req, res) => {
+  await crmService.deleteContact(req.params.id);
+  res.json({ data: { message: "Contact deleted" } });
+});
+
 // Deals
 router.get("/deals", async (_req, res) => {
   const deals = await crmService.listDeals();
@@ -49,6 +54,11 @@ router.patch("/deals/:id", async (req, res) => {
   res.json({ data: deal });
 });
 
+router.delete("/deals/:id", requireAdmin, async (req, res) => {
+  await crmService.deleteDeal(req.params.id);
+  res.json({ data: { message: "Deal deleted" } });
+});
+
 // Activities
 router.get("/activities", async (req, res) => {
   const activities = await crmService.listActivities(req.query.contactId as string | undefined);
@@ -59,6 +69,11 @@ router.post("/activities", async (req, res) => {
   const body = createActivitySchema.parse(req.body);
   const activity = await crmService.createActivity(body, req.user!.id);
   res.status(201).json({ data: activity });
+});
+
+router.delete("/activities/:id", requireAdmin, async (req, res) => {
+  await crmService.deleteActivity(req.params.id);
+  res.json({ data: { message: "Activity deleted" } });
 });
 
 export default router;
