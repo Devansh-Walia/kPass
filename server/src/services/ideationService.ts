@@ -30,4 +30,6 @@ export const ideationService = {
       data: { votes: { increment: 1 } },
       include: { createdBy: { select: { firstName: true, lastName: true } } },
     }),
+
+  deleteIdea: (id: string) => prisma.idea.delete({ where: { id } }),
 };

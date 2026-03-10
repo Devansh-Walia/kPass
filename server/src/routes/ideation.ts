@@ -31,4 +31,9 @@ router.post("/ideas/:id/vote", async (req, res) => {
   res.json({ data: idea });
 });
 
+router.delete("/ideas/:id", async (req, res) => {
+  await ideationService.deleteIdea(req.params.id as string);
+  res.json({ data: { success: true } });
+});
+
 export default router;

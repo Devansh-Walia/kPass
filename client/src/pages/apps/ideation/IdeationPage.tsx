@@ -1,5 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { ideationApi } from "../../../api/ideation";
+import { useAuth } from "../../../contexts/AuthContext";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 
 type IdeaStage = "IDEA" | "APPROVED" | "IN_PROGRESS" | "DONE";
 
@@ -30,12 +32,17 @@ const STAGE_COLORS: Record<IdeaStage, string> = {
 };
 
 export default function IdeationPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: "", description: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", description: "" });
+  const [deleteTarget, setDeleteTarget] = useState<Idea | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -93,6 +100,41 @@ export default function IdeationPage() {
   const voteIdea = async (ideaId: string) => {
     try {
       await ideationApi.voteIdea(ideaId);
+      await loadData();
+    } catch {
+      /* silent */
+    }
+  };
+
+  const startEdit = (idea: Idea) => {
+    setEditingId(idea.id);
+    setEditForm({ title: idea.title, description: idea.description });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm({ title: "", description: "" });
+  };
+
+  const handleEdit = async (ideaId: string) => {
+    if (!editForm.title.trim() || !editForm.description.trim()) return;
+    try {
+      await ideationApi.updateIdea(ideaId, {
+        title: editForm.title.trim(),
+        description: editForm.description.trim(),
+      });
+      setEditingId(null);
+      await loadData();
+    } catch {
+      /* silent */
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await ideationApi.deleteIdea(deleteTarget.id);
+      setDeleteTarget(null);
       await loadData();
     } catch {
       /* silent */
@@ -161,6 +203,14 @@ export default function IdeationPage() {
                     key={idea.id}
                     idea={idea}
                     currentStage={stage}
+                    isAdmin={isAdmin}
+                    isEditing={editingId === idea.id}
+                    editForm={editingId === idea.id ? editForm : { title: "", description: "" }}
+                    onEditFormChange={setEditForm}
+                    onStartEdit={startEdit}
+                    onCancelEdit={cancelEdit}
+                    onSaveEdit={handleEdit}
+                    onDelete={setDeleteTarget}
                     onMove={moveIdea}
                     onVote={voteIdea}
                   />
@@ -170,6 +220,14 @@ export default function IdeationPage() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete Idea"
+        message={`Are you sure you want to delete "${deleteTarget?.title}"? This action cannot be undone.`}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
@@ -177,11 +235,27 @@ export default function IdeationPage() {
 function IdeaCard({
   idea,
   currentStage,
+  isAdmin,
+  isEditing,
+  editForm,
+  onEditFormChange,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onDelete,
   onMove,
   onVote,
 }: {
   idea: Idea;
   currentStage: IdeaStage;
+  isAdmin: boolean;
+  isEditing: boolean;
+  editForm: { title: string; description: string };
+  onEditFormChange: (form: { title: string; description: string }) => void;
+  onStartEdit: (idea: Idea) => void;
+  onCancelEdit: () => void;
+  onSaveEdit: (id: string) => void;
+  onDelete: (idea: Idea) => void;
   onMove: (id: string, stage: IdeaStage) => void;
   onVote: (id: string) => void;
 }) {
@@ -190,22 +264,76 @@ function IdeaCard({
     ? `${idea.createdBy.firstName} ${idea.createdBy.lastName}`
     : "Unknown";
 
+  if (isEditing) {
+    return (
+      <div className="rounded border border-indigo-300 bg-white p-3 shadow-sm space-y-2">
+        <input
+          value={editForm.title}
+          onChange={(e) => onEditFormChange({ ...editForm, title: e.target.value })}
+          className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+          placeholder="Title"
+        />
+        <textarea
+          value={editForm.description}
+          onChange={(e) => onEditFormChange({ ...editForm, description: e.target.value })}
+          className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+          rows={2}
+          placeholder="Description"
+        />
+        <div className="flex gap-2">
+          <button
+            onClick={() => onSaveEdit(idea.id)}
+            className="rounded bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-700"
+          >
+            Save
+          </button>
+          <button
+            onClick={onCancelEdit}
+            className="rounded border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="rounded border border-white bg-white p-3 shadow-sm">
+    <div
+      className="rounded border border-white bg-white p-3 shadow-sm cursor-pointer hover:border-indigo-200"
+      onClick={() => onStartEdit(idea)}
+    >
       <p className="text-sm font-medium text-gray-900">{idea.title}</p>
       <p className="mt-1 text-xs text-gray-500 line-clamp-2">{idea.description}</p>
       <p className="mt-1 text-xs text-gray-400">by {creatorName}</p>
       <div className="mt-2 flex items-center justify-between">
         <button
-          onClick={() => onVote(idea.id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onVote(idea.id);
+          }}
           className="flex items-center gap-1 rounded bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
         >
           &uarr; {idea.votes}
         </button>
         <div className="flex gap-1">
+          {isAdmin && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(idea);
+              }}
+              className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700 hover:bg-red-100"
+            >
+              Delete
+            </button>
+          )}
           {stageIdx > 0 && (
             <button
-              onClick={() => onMove(idea.id, STAGES[stageIdx - 1])}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMove(idea.id, STAGES[stageIdx - 1]);
+              }}
               className="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-700 hover:bg-gray-300"
             >
               &larr;
@@ -213,7 +341,10 @@ function IdeaCard({
           )}
           {stageIdx < STAGES.length - 1 && (
             <button
-              onClick={() => onMove(idea.id, STAGES[stageIdx + 1])}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMove(idea.id, STAGES[stageIdx + 1]);
+              }}
               className="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-700 hover:bg-gray-300"
             >
               &rarr;

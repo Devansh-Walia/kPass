@@ -11,4 +11,6 @@ export const ideationApi = {
     apiClient.patch(`/apps/ideation/ideas/${id}`, data).then((res) => res.data.data),
   voteIdea: (id: string) =>
     apiClient.post(`/apps/ideation/ideas/${id}/vote`).then((res) => res.data.data),
+  deleteIdea: (id: string) =>
+    apiClient.delete(`/apps/ideation/ideas/${id}`).then((res) => res.data.data),
 };
