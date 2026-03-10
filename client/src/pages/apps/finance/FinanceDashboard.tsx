@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { financeApi } from "../../../api/finance";
+import { formatCurrency, TRANSACTION_TYPE_COLORS } from "../../../constants";
 
 interface Transaction {
   id: string;
@@ -25,14 +26,6 @@ interface Report {
 }
 
 type Tab = "overview" | "transactions" | "reports";
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 2,
-  }).format(amount);
-}
 
 function getMonthRange(): { start: string; end: string } {
   const now = new Date();
@@ -393,11 +386,7 @@ export default function FinanceDashboard() {
                       </td>
                       <td className="px-4 py-3">
                         <span
-                          className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                            tx.type === "INCOME"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-red-100 text-red-700"
-                          }`}
+                          className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${TRANSACTION_TYPE_COLORS[tx.type] ?? "bg-gray-100 text-gray-700"}`}
                         >
                           {tx.type}
                         </span>

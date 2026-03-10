@@ -2,23 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { appsApi } from "../api/apps";
 import { useAuth } from "../contexts/AuthContext";
-
-interface App {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  route: string;
-  type: string;
-}
-
-const typeColors: Record<string, string> = {
-  FINANCE: "bg-emerald-100 text-emerald-700",
-  CRM: "bg-blue-100 text-blue-700",
-  MARKETING: "bg-orange-100 text-orange-700",
-  IDEATION: "bg-purple-100 text-purple-700",
-  CUSTOM: "bg-gray-100 text-gray-700",
-};
+import type { App } from "../types";
+import { APP_TYPE_COLORS } from "../constants";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -50,14 +35,14 @@ export default function Dashboard() {
         {apps.map(app => (
           <button
             key={app.id}
-            onClick={() => navigate(app.route)}
+            onClick={() => app.route && navigate(app.route)}
             className="group p-6 bg-white rounded-xl border border-gray-200 hover:border-indigo-300 hover:shadow-lg transition-all text-left"
           >
             <div className="flex items-start justify-between mb-3">
               <div className="text-lg font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
                 {app.name}
               </div>
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${typeColors[app.type] || typeColors.CUSTOM}`}>
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${APP_TYPE_COLORS[app.type] || APP_TYPE_COLORS.CUSTOM}`}>
                 {app.type}
               </span>
             </div>

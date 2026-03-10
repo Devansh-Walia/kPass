@@ -1,14 +1,8 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { authApi } from "../api/auth";
+import type { AuthUser } from "../types";
 
-interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: "ADMIN" | "MEMBER";
-  mustChangePassword: boolean;
-}
+type User = AuthUser;
 
 interface AuthState {
   user: User | null;

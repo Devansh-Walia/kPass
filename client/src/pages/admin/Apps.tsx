@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiClient } from "../../api/client";
-
-interface App { id: string; name: string; slug: string; description: string; type: string; isActive: boolean; }
+import type { App } from "../../types";
+import { activeStatusBadge, activeStatusLabel } from "../../constants";
 
 export default function Apps() {
   const [apps, setApps] = useState<App[]>([]);
@@ -29,7 +29,7 @@ export default function Apps() {
                 <td className="px-6 py-4 text-sm font-medium text-gray-900">{app.name}</td>
                 <td className="px-6 py-4 text-sm text-gray-500">{app.slug}</td>
                 <td className="px-6 py-4"><span className="text-xs font-medium px-2 py-1 rounded bg-indigo-50 text-indigo-700">{app.type}</span></td>
-                <td className="px-6 py-4"><span className={`text-xs font-medium px-2 py-1 rounded ${app.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{app.isActive ? "Active" : "Inactive"}</span></td>
+                <td className="px-6 py-4"><span className={`text-xs font-medium px-2 py-1 rounded ${activeStatusBadge(app.isActive)}`}>{activeStatusLabel(app.isActive)}</span></td>
               </tr>
             ))}
           </tbody>

@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { donorMgmtApi } from "../../../api/donorMgmt";
+import { formatCurrency, DONOR_TYPE_COLORS } from "../../../constants";
 
 type Tab = "donors" | "donations";
 
@@ -28,14 +29,6 @@ interface Donation {
   receiptNo: string | null;
   donor?: { name: string };
   createdBy?: { firstName: string; lastName: string };
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 2,
-  }).format(amount);
 }
 
 export default function DonorMgmtPage() {
@@ -312,11 +305,7 @@ function DonorRow({
         <td className="px-4 py-3 text-sm text-gray-600">{donor.phone || "-"}</td>
         <td className="px-4 py-3 text-sm">
           <span
-            className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${
-              donor.type === "INDIVIDUAL"
-                ? "bg-blue-100 text-blue-800"
-                : "bg-purple-100 text-purple-800"
-            }`}
+            className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${DONOR_TYPE_COLORS[donor.type] ?? "bg-gray-100 text-gray-800"}`}
           >
             {donor.type}
           </span>

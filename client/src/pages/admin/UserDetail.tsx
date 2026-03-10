@@ -3,18 +3,18 @@ import { useParams, useNavigate } from "react-router-dom";
 import { usersApi } from "../../api/users";
 import { appsApi } from "../../api/apps";
 import { PasswordInput } from "../../components/common/PasswordInput";
+import type { App } from "../../types";
+import { ROLE_BADGE_COLORS, activeStatusBadge, activeStatusLabel } from "../../constants";
 
-interface UserDetail {
+interface UserDetailData {
   id: string; email: string; firstName: string; lastName: string; role: string; isActive: boolean;
   apps: { app: { id: string; name: string; slug: string } }[];
 }
 
-interface App { id: string; name: string; slug: string; }
-
 export default function UserDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [user, setUser] = useState<UserDetail | null>(null);
+  const [user, setUser] = useState<UserDetailData | null>(null);
   const [allApps, setAllApps] = useState<App[]>([]);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ firstName: "", lastName: "", role: "" });
@@ -99,8 +99,8 @@ export default function UserDetail() {
           </div>
         ) : (
           <div className="mt-2">
-            <span className={`text-xs font-medium px-2 py-1 rounded ${user.role === "ADMIN" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-700"}`}>{user.role}</span>
-            <span className={`ml-2 text-xs font-medium px-2 py-1 rounded ${user.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{user.isActive ? "Active" : "Inactive"}</span>
+            <span className={`text-xs font-medium px-2 py-1 rounded ${ROLE_BADGE_COLORS[user.role as keyof typeof ROLE_BADGE_COLORS] ?? "bg-gray-100 text-gray-700"}`}>{user.role}</span>
+            <span className={`ml-2 text-xs font-medium px-2 py-1 rounded ${activeStatusBadge(user.isActive)}`}>{activeStatusLabel(user.isActive)}</span>
           </div>
         )}
       </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { peopleDirectoryApi } from "../../../api/peopleDirectory";
+import { activeStatusBadge, activeStatusLabel } from "../../../constants";
 
 interface Employee {
   id: string;
@@ -262,13 +263,9 @@ function EmployeeRow({
         <td className="px-4 py-3 text-sm text-gray-600">{employee.phone || "-"}</td>
         <td className="px-4 py-3 text-sm">
           <span
-            className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${
-              employee.isActive
-                ? "bg-green-100 text-green-800"
-                : "bg-red-100 text-red-800"
-            }`}
+            className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${activeStatusBadge(employee.isActive)}`}
           >
-            {employee.isActive ? "Active" : "Inactive"}
+            {activeStatusLabel(employee.isActive)}
           </span>
         </td>
       </tr>
@@ -317,13 +314,9 @@ function EmployeeRow({
                   <h4 className="text-xs font-semibold uppercase text-gray-500">Status</h4>
                   <p className="mt-1">
                     <span
-                      className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${
-                        expandedData.isActive
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
+                      className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${activeStatusBadge(expandedData.isActive)}`}
                     >
-                      {expandedData.isActive ? "Active" : "Inactive"}
+                      {activeStatusLabel(expandedData.isActive)}
                     </span>
                   </p>
                 </div>

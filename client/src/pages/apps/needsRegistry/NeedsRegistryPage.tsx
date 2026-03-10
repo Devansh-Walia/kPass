@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { needsRegistryApi } from "../../../api/needsRegistry";
+import { APPROVAL_STATUS_COLORS } from "../../../constants";
 
 type Status = "ALL" | "PENDING" | "APPROVED" | "FULFILLED" | "REJECTED";
 type Category = "SANITATION" | "HEALTH" | "SUPPLIES" | "OTHER";
@@ -17,10 +18,10 @@ interface NeedRequest {
 }
 
 const STATUS_BADGES: Record<NeedRequest["status"], { label: string; color: string }> = {
-  PENDING: { label: "Pending", color: "bg-yellow-100 text-yellow-800" },
+  PENDING: { label: "Pending", color: APPROVAL_STATUS_COLORS.PENDING },
   APPROVED: { label: "Approved", color: "bg-blue-100 text-blue-800" },
-  FULFILLED: { label: "Fulfilled", color: "bg-green-100 text-green-800" },
-  REJECTED: { label: "Rejected", color: "bg-red-100 text-red-800" },
+  FULFILLED: { label: "Fulfilled", color: APPROVAL_STATUS_COLORS.FULFILLED },
+  REJECTED: { label: "Rejected", color: APPROVAL_STATUS_COLORS.REJECTED },
 };
 
 const CATEGORY_BADGES: Record<Category, { label: string; color: string }> = {

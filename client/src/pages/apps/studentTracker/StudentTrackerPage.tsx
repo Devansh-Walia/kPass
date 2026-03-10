@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { studentTrackerApi } from "../../../api/studentTracker";
+import { ATTENDANCE_STATUS_COLORS } from "../../../constants";
 
 type Tab = "students" | "attendance";
 
@@ -26,9 +27,9 @@ interface AttendanceRecord {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  PRESENT: "bg-green-100 text-green-700",
-  ABSENT: "bg-red-100 text-red-700",
-  LATE: "bg-yellow-100 text-yellow-700",
+  PRESENT: ATTENDANCE_STATUS_COLORS.PRESENT,
+  ABSENT: ATTENDANCE_STATUS_COLORS.ABSENT,
+  LATE: ATTENDANCE_STATUS_COLORS.LATE,
 };
 
 export default function StudentTrackerPage() {

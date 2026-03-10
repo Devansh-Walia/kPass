@@ -2,15 +2,13 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { usersApi } from "../../api/users";
 import { PasswordInput } from "../../components/common/PasswordInput";
-
-interface User {
-  id: string; email: string; firstName: string; lastName: string; role: string; isActive: boolean;
-}
+import type { User } from "../../types";
+import { UserRole, ROLE_BADGE_COLORS, activeStatusBadge, activeStatusLabel } from "../../constants";
 
 export default function Users() {
   const [users, setUsers] = useState<User[]>([]);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ email: "", firstName: "", lastName: "", password: "", role: "MEMBER" });
+  const [form, setForm] = useState({ email: "", firstName: "", lastName: "", password: "", role: "MEMBER" as string });
   const [error, setError] = useState("");
 
   useEffect(() => { loadUsers(); }, []);
@@ -22,7 +20,7 @@ export default function Users() {
     try {
       await usersApi.create(form);
       setShowCreate(false);
-      setForm({ email: "", firstName: "", lastName: "", password: "", role: "MEMBER" });
+      setForm({ email: "", firstName: "", lastName: "", password: "", role: UserRole.MEMBER });
       loadUsers();
     } catch {
       setError("Failed to create user. Email may already exist.");
@@ -79,13 +77,13 @@ export default function Users() {
                 <td className="px-6 py-4 text-sm font-medium text-gray-900">{user.firstName} {user.lastName}</td>
                 <td className="px-6 py-4 text-sm text-gray-500">{user.email}</td>
                 <td className="px-6 py-4">
-                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${user.role === "ADMIN" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"}`}>
+                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${ROLE_BADGE_COLORS[user.role] ?? "bg-gray-100 text-gray-600"}`}>
                     {user.role}
                   </span>
                 </td>
                 <td className="px-6 py-4">
-                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${user.isActive ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
-                    {user.isActive ? "Active" : "Inactive"}
+                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${activeStatusBadge(user.isActive)}`}>
+                    {activeStatusLabel(user.isActive)}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right">

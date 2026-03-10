@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { usersApi } from "../../api/users";
 import { appsApi } from "../../api/apps";
+import { UserRole } from "../../constants";
 
 export default function Overview() {
   const [users, setUsers] = useState<any[]>([]);
@@ -12,7 +13,7 @@ export default function Overview() {
   }, []);
 
   const activeUsers = users.filter(u => u.isActive).length;
-  const adminCount = users.filter(u => u.role === "ADMIN").length;
+  const adminCount = users.filter(u => u.role === UserRole.ADMIN).length;
 
   return (
     <div>

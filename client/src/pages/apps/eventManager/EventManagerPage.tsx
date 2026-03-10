@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { eventManagerApi } from "../../../api/eventManager";
 import { usersApi } from "../../../api/users";
+import { formatCurrency } from "../../../constants";
 
 interface EventVolunteer {
   id: string;
@@ -21,7 +22,7 @@ interface Event {
   _count?: { volunteers: number };
 }
 
-interface User {
+interface UserSummary {
   id: string;
   firstName: string;
   lastName: string;
@@ -59,7 +60,7 @@ export default function EventManagerPage() {
   const [volRole, setVolRole] = useState("");
   const [volError, setVolError] = useState("");
   const [volSubmitting, setVolSubmitting] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserSummary[]>([]);
 
   useEffect(() => {
     loadEvents();
@@ -349,10 +350,7 @@ export default function EventManagerPage() {
                           <div>
                             <span className="font-medium text-gray-600">Budget: </span>
                             <span className="text-gray-800">
-                              {new Intl.NumberFormat("en-IN", {
-                                style: "currency",
-                                currency: "INR",
-                              }).format(expandedEvent.budget)}
+                              {formatCurrency(expandedEvent.budget)}
                             </span>
                           </div>
                         )}

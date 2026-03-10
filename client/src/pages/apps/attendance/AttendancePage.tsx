@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { attendanceApi } from "../../../api/attendance";
+import { ATTENDANCE_STATUS_COLORS, APPROVAL_STATUS_COLORS } from "../../../constants";
 
 type Tab = "daily" | "leaves" | "report";
 
@@ -50,12 +51,8 @@ interface MonthlyReport {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  PRESENT: "bg-green-100 text-green-800",
-  ABSENT: "bg-red-100 text-red-800",
-  LEAVE: "bg-yellow-100 text-yellow-800",
-  PENDING: "bg-yellow-100 text-yellow-800",
-  APPROVED: "bg-green-100 text-green-800",
-  REJECTED: "bg-red-100 text-red-800",
+  ...ATTENDANCE_STATUS_COLORS,
+  ...APPROVAL_STATUS_COLORS,
 };
 
 export default function AttendancePage() {
