@@ -72,4 +72,10 @@ export const workshopTrackerService = {
       data: { attended: !participant.attended },
     });
   },
+
+  deleteWorkshop: (id: string) =>
+    prisma.workshop.delete({ where: { id } }),
+
+  removeParticipant: (id: string) =>
+    prisma.workshopParticipant.delete({ where: { id } }),
 };

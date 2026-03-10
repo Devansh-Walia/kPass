@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { workshopTrackerApi } from "../../../api/workshopTracker";
+import { useAuth } from "../../../contexts/AuthContext";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 
 type Tab = "upcoming" | "past";
 
@@ -34,6 +36,9 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 export default function WorkshopTrackerPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
+
   const [tab, setTab] = useState<Tab>("upcoming");
   const [workshops, setWorkshops] = useState<Workshop[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,10 +62,31 @@ export default function WorkshopTrackerPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
+  // Edit form state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    description: "",
+    date: "",
+    instructor: "",
+    materialsNeeded: "",
+    maxParticipants: "",
+  });
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editFormError, setEditFormError] = useState("");
+
   // Add participant form
   const [participantForm, setParticipantForm] = useState({ studentName: "", studentId: "" });
   const [addingParticipant, setAddingParticipant] = useState(false);
   const [participantError, setParticipantError] = useState("");
+
+  // Delete workshop confirm dialog
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Remove participant confirm
+  const [removeTarget, setRemoveTarget] = useState<string | null>(null);
+  const [removingParticipant, setRemovingParticipant] = useState(false);
 
   const loadWorkshops = async () => {
     setLoading(true);
@@ -84,9 +110,11 @@ export default function WorkshopTrackerPage() {
     if (expandedId === id) {
       setExpandedId(null);
       setDetail(null);
+      setEditingId(null);
       return;
     }
     setExpandedId(id);
+    setEditingId(null);
     setDetailLoading(true);
     setParticipantError("");
     setParticipantForm({ studentName: "", studentId: "" });
@@ -125,6 +153,87 @@ export default function WorkshopTrackerPage() {
       setFormError(err.response?.data?.error || "Failed to create workshop.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const startEdit = (d: WorkshopDetail) => {
+    setEditingId(d.id);
+    setEditFormError("");
+    const dateLocal = d.date ? new Date(d.date).toISOString().slice(0, 16) : "";
+    setEditForm({
+      title: d.title,
+      description: d.description ?? "",
+      date: dateLocal,
+      instructor: d.instructor,
+      materialsNeeded: d.materialsNeeded ?? "",
+      maxParticipants: d.maxParticipants != null ? String(d.maxParticipants) : "",
+    });
+  };
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingId) return;
+    setEditFormError("");
+    if (!editForm.title.trim() || !editForm.date || !editForm.instructor.trim()) {
+      setEditFormError("Title, date, and instructor are required.");
+      return;
+    }
+    setEditSubmitting(true);
+    try {
+      const payload: any = {
+        title: editForm.title.trim(),
+        date: editForm.date,
+        instructor: editForm.instructor.trim(),
+      };
+      if (editForm.description.trim()) payload.description = editForm.description.trim();
+      else payload.description = null;
+      if (editForm.materialsNeeded.trim()) payload.materialsNeeded = editForm.materialsNeeded.trim();
+      else payload.materialsNeeded = null;
+      if (editForm.maxParticipants) payload.maxParticipants = Number(editForm.maxParticipants);
+      else payload.maxParticipants = null;
+
+      const updated = await workshopTrackerApi.updateWorkshop(editingId, payload);
+      setDetail(updated);
+      setEditingId(null);
+      await loadWorkshops();
+    } catch (err: any) {
+      setEditFormError(err.response?.data?.error || "Failed to update workshop.");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const handleDeleteWorkshop = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await workshopTrackerApi.deleteWorkshop(deleteTarget);
+      setDeleteTarget(null);
+      if (expandedId === deleteTarget) {
+        setExpandedId(null);
+        setDetail(null);
+      }
+      await loadWorkshops();
+    } catch {
+      setError("Failed to delete workshop.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleRemoveParticipant = async () => {
+    if (!removeTarget || !expandedId) return;
+    setRemovingParticipant(true);
+    try {
+      await workshopTrackerApi.removeParticipant(removeTarget);
+      setRemoveTarget(null);
+      const data = await workshopTrackerApi.getWorkshop(expandedId);
+      setDetail(data);
+      await loadWorkshops();
+    } catch {
+      setParticipantError("Failed to remove participant.");
+    } finally {
+      setRemovingParticipant(false);
     }
   };
 
@@ -169,6 +278,26 @@ export default function WorkshopTrackerPage() {
       <h2 className="text-2xl font-bold text-gray-900">Workshop Tracker</h2>
 
       {error && <div className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+
+      {/* Delete workshop confirm dialog */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete Workshop"
+        message="Are you sure you want to delete this workshop? All participant records will also be removed. This action cannot be undone."
+        confirmLabel={deleting ? "Deleting..." : "Delete"}
+        onConfirm={handleDeleteWorkshop}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
+      {/* Remove participant confirm dialog */}
+      <ConfirmDialog
+        open={removeTarget !== null}
+        title="Remove Participant"
+        message="Are you sure you want to remove this participant from the workshop?"
+        confirmLabel={removingParticipant ? "Removing..." : "Remove"}
+        onConfirm={handleRemoveParticipant}
+        onCancel={() => setRemoveTarget(null)}
+      />
 
       {/* Tab Navigation */}
       <div className="border-b border-gray-200">
@@ -296,27 +425,136 @@ export default function WorkshopTrackerPage() {
                     <p className="text-gray-500 text-sm">Loading details...</p>
                   ) : detail ? (
                     <>
-                      {/* Workshop info */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                        {detail.description && (
-                          <div>
-                            <span className="font-medium text-gray-700">Description:</span>{" "}
-                            <span className="text-gray-600">{detail.description}</span>
-                          </div>
+                      {/* Action buttons */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() =>
+                            editingId === detail.id ? setEditingId(null) : startEdit(detail)
+                          }
+                          className="rounded border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                        >
+                          {editingId === detail.id ? "Cancel Edit" : "Edit Workshop"}
+                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => setDeleteTarget(detail.id)}
+                            className="rounded border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                          >
+                            Delete Workshop
+                          </button>
                         )}
-                        {detail.materialsNeeded && (
-                          <div>
-                            <span className="font-medium text-gray-700">Materials:</span>{" "}
-                            <span className="text-gray-600">{detail.materialsNeeded}</span>
-                          </div>
-                        )}
-                        <div>
-                          <span className="font-medium text-gray-700">Created by:</span>{" "}
-                          <span className="text-gray-600">
-                            {detail.createdBy.firstName} {detail.createdBy.lastName}
-                          </span>
-                        </div>
                       </div>
+
+                      {/* Edit form */}
+                      {editingId === detail.id && (
+                        <form
+                          onSubmit={handleEdit}
+                          className="rounded border border-indigo-200 bg-indigo-50/50 p-4 space-y-3"
+                        >
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <input
+                              required
+                              placeholder="Title *"
+                              value={editForm.title}
+                              onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                              className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                            />
+                            <input
+                              required
+                              placeholder="Instructor *"
+                              value={editForm.instructor}
+                              onChange={(e) =>
+                                setEditForm({ ...editForm, instructor: e.target.value })
+                              }
+                              className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                            />
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">
+                                Date *
+                              </label>
+                              <input
+                                type="datetime-local"
+                                required
+                                value={editForm.date}
+                                onChange={(e) =>
+                                  setEditForm({ ...editForm, date: e.target.value })
+                                }
+                                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                              />
+                            </div>
+                            <input
+                              type="number"
+                              placeholder="Max participants"
+                              min={1}
+                              value={editForm.maxParticipants}
+                              onChange={(e) =>
+                                setEditForm({ ...editForm, maxParticipants: e.target.value })
+                              }
+                              className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                            />
+                          </div>
+                          <textarea
+                            placeholder="Description"
+                            value={editForm.description}
+                            onChange={(e) =>
+                              setEditForm({ ...editForm, description: e.target.value })
+                            }
+                            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                            rows={2}
+                          />
+                          <input
+                            placeholder="Materials needed"
+                            value={editForm.materialsNeeded}
+                            onChange={(e) =>
+                              setEditForm({ ...editForm, materialsNeeded: e.target.value })
+                            }
+                            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="submit"
+                              disabled={editSubmitting}
+                              className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                            >
+                              {editSubmitting ? "Saving..." : "Save Changes"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingId(null)}
+                              className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                          {editFormError && (
+                            <p className="text-red-600 text-sm">{editFormError}</p>
+                          )}
+                        </form>
+                      )}
+
+                      {/* Workshop info */}
+                      {editingId !== detail.id && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                          {detail.description && (
+                            <div>
+                              <span className="font-medium text-gray-700">Description:</span>{" "}
+                              <span className="text-gray-600">{detail.description}</span>
+                            </div>
+                          )}
+                          {detail.materialsNeeded && (
+                            <div>
+                              <span className="font-medium text-gray-700">Materials:</span>{" "}
+                              <span className="text-gray-600">{detail.materialsNeeded}</span>
+                            </div>
+                          )}
+                          <div>
+                            <span className="font-medium text-gray-700">Created by:</span>{" "}
+                            <span className="text-gray-600">
+                              {detail.createdBy.firstName} {detail.createdBy.lastName}
+                            </span>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Participants table */}
                       <div>
@@ -328,7 +566,7 @@ export default function WorkshopTrackerPage() {
                             <table className="min-w-full divide-y divide-gray-200 rounded border border-gray-200">
                               <thead className="bg-gray-50">
                                 <tr>
-                                  {["Name", "Attended"].map((h) => (
+                                  {["Name", "Attended", ""].map((h) => (
                                     <th
                                       key={h}
                                       className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500"
@@ -349,6 +587,14 @@ export default function WorkshopTrackerPage() {
                                         onChange={() => handleToggleAttendance(p.id)}
                                         className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                       />
+                                    </td>
+                                    <td className="px-4 py-2">
+                                      <button
+                                        onClick={() => setRemoveTarget(p.id)}
+                                        className="text-xs text-red-600 hover:text-red-800 font-medium"
+                                      >
+                                        Remove
+                                      </button>
                                     </td>
                                   </tr>
                                 ))}

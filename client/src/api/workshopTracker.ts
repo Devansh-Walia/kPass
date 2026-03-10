@@ -17,4 +17,8 @@ export const workshopTrackerApi = {
     apiClient
       .patch(`/apps/workshop-tracker/participants/${participantId}/attendance`)
       .then((res) => res.data.data),
+  deleteWorkshop: (id: string) =>
+    apiClient.delete(`/apps/workshop-tracker/workshops/${id}`).then((res) => res.data.data),
+  removeParticipant: (id: string) =>
+    apiClient.delete(`/apps/workshop-tracker/participants/${id}`).then((res) => res.data.data),
 };

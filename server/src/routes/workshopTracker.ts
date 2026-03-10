@@ -41,4 +41,14 @@ router.patch("/participants/:id/attendance", async (req, res) => {
   res.json({ data: participant });
 });
 
+router.delete("/workshops/:id", async (req, res) => {
+  await workshopTrackerService.deleteWorkshop(req.params.id as string);
+  res.json({ data: { success: true } });
+});
+
+router.delete("/participants/:id", async (req, res) => {
+  await workshopTrackerService.removeParticipant(req.params.id as string);
+  res.json({ data: { success: true } });
+});
+
 export default router;
