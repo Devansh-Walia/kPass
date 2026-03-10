@@ -11,4 +11,6 @@ export const peopleDirectoryApi = {
     apiClient.post("/apps/people-directory/employees", data).then((res) => res.data.data),
   updateEmployee: (id: string, data: any) =>
     apiClient.patch(`/apps/people-directory/employees/${id}`, data).then((res) => res.data.data),
+  deleteEmployee: (id: string) =>
+    apiClient.delete(`/apps/people-directory/employees/${id}`).then((res) => res.data.data),
 };

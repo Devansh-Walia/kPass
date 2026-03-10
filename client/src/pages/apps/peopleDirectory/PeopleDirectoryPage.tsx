@@ -1,6 +1,8 @@
 import { useEffect, useState, useMemo } from "react";
 import { peopleDirectoryApi } from "../../../api/peopleDirectory";
 import { activeStatusBadge, activeStatusLabel } from "../../../constants";
+import { useAuth } from "../../../contexts/AuthContext";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 
 interface Employee {
   id: string;
@@ -14,24 +16,35 @@ interface Employee {
   user?: { firstName: string; lastName: string } | null;
 }
 
+const emptyForm = {
+  name: "",
+  email: "",
+  phone: "",
+  department: "",
+  designation: "",
+  joinDate: "",
+};
+
 export default function PeopleDirectoryPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
+
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("All");
+  const [activeOnly, setActiveOnly] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedData, setExpandedData] = useState<Employee | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    department: "",
-    designation: "",
-    joinDate: "",
-  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -58,9 +71,10 @@ export default function PeopleDirectoryPage() {
           (e.email && e.email.toLowerCase().includes(search.toLowerCase())) ||
           e.designation.toLowerCase().includes(search.toLowerCase());
         const matchesDept = department === "All" || e.department === department;
-        return matchesSearch && matchesDept;
+        const matchesActive = !activeOnly || e.isActive;
+        return matchesSearch && matchesDept && matchesActive;
       }),
-    [employees, search, department]
+    [employees, search, department, activeOnly]
   );
 
   const departments = useMemo(() => {
@@ -84,26 +98,67 @@ export default function PeopleDirectoryPage() {
     }
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const startEdit = (emp: Employee) => {
+    setEditingId(emp.id);
+    setForm({
+      name: emp.name,
+      email: emp.email || "",
+      phone: emp.phone || "",
+      department: emp.department,
+      designation: emp.designation,
+      joinDate: emp.joinDate ? emp.joinDate.slice(0, 10) : "",
+    });
+    setShowForm(true);
+  };
+
+  const cancelForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setForm(emptyForm);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.department.trim() || !form.designation.trim() || !form.joinDate) return;
     setSubmitting(true);
     try {
-      await peopleDirectoryApi.createEmployee({
+      const payload = {
         name: form.name.trim(),
         email: form.email.trim() || undefined,
         phone: form.phone.trim() || undefined,
         department: form.department.trim(),
         designation: form.designation.trim(),
         joinDate: form.joinDate,
-      });
-      setForm({ name: "", email: "", phone: "", department: "", designation: "", joinDate: "" });
-      setShowForm(false);
+      };
+      if (editingId) {
+        await peopleDirectoryApi.updateEmployee(editingId, payload);
+      } else {
+        await peopleDirectoryApi.createEmployee(payload);
+      }
+      cancelForm();
       await loadData();
     } catch {
       /* silent */
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await peopleDirectoryApi.deleteEmployee(deleteTarget.id);
+      setDeleteTarget(null);
+      if (expandedId === deleteTarget.id) {
+        setExpandedId(null);
+        setExpandedData(null);
+      }
+      await loadData();
+    } catch {
+      /* silent */
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -135,9 +190,26 @@ export default function PeopleDirectoryPage() {
               </option>
             ))}
           </select>
+          <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={activeOnly}
+              onChange={(e) => setActiveOnly(e.target.checked)}
+              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            Active only
+          </label>
         </div>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            if (showForm) {
+              cancelForm();
+            } else {
+              setEditingId(null);
+              setForm(emptyForm);
+              setShowForm(true);
+            }
+          }}
           className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
         >
           {showForm ? "Cancel" : "Add Employee"}
@@ -145,7 +217,10 @@ export default function PeopleDirectoryPage() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleCreate} className="rounded border border-gray-200 bg-gray-50 p-4 space-y-3">
+        <form onSubmit={handleSubmit} className="rounded border border-gray-200 bg-gray-50 p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-gray-700">
+            {editingId ? "Edit Employee" : "Add Employee"}
+          </h3>
           <div className="grid grid-cols-2 gap-3">
             <input
               required
@@ -190,13 +265,24 @@ export default function PeopleDirectoryPage() {
               className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             />
           </div>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {submitting ? "Saving..." : "Save Employee"}
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {submitting ? "Saving..." : editingId ? "Update Employee" : "Save Employee"}
+            </button>
+            {editingId && (
+              <button
+                type="button"
+                onClick={cancelForm}
+                className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel Edit
+              </button>
+            )}
+          </div>
         </form>
       )}
 
@@ -207,7 +293,7 @@ export default function PeopleDirectoryPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {["Name", "Department", "Designation", "Email", "Phone", "Status"].map((h) => (
+                {["Name", "Department", "Designation", "Email", "Phone", "Status", ...(isAdmin ? ["Actions"] : [])].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                     {h}
                   </th>
@@ -217,7 +303,7 @@ export default function PeopleDirectoryPage() {
             <tbody className="divide-y divide-gray-200 bg-white">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-500">
+                  <td colSpan={isAdmin ? 7 : 6} className="px-4 py-6 text-center text-sm text-gray-500">
                     No employees found.
                   </td>
                 </tr>
@@ -229,12 +315,24 @@ export default function PeopleDirectoryPage() {
                   expanded={expandedId === emp.id}
                   expandedData={expandedId === emp.id ? expandedData : null}
                   onToggle={() => toggleExpand(emp.id)}
+                  isAdmin={isAdmin}
+                  onEdit={() => startEdit(emp)}
+                  onDelete={() => setDeleteTarget(emp)}
                 />
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete Employee"
+        message={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
+        confirmLabel={deleting ? "Deleting..." : "Delete"}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
@@ -244,11 +342,17 @@ function EmployeeRow({
   expanded,
   expandedData,
   onToggle,
+  isAdmin,
+  onEdit,
+  onDelete,
 }: {
   employee: Employee;
   expanded: boolean;
   expandedData: Employee | null;
   onToggle: () => void;
+  isAdmin: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   return (
     <>
@@ -268,10 +372,34 @@ function EmployeeRow({
             {activeStatusLabel(employee.isActive)}
           </span>
         </td>
+        {isAdmin && (
+          <td className="px-4 py-3 text-sm">
+            <div className="flex gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
+                className="rounded px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+              >
+                Edit
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+                className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+              >
+                Delete
+              </button>
+            </div>
+          </td>
+        )}
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={6} className="bg-gray-50 px-6 py-4">
+          <td colSpan={isAdmin ? 7 : 6} className="bg-gray-50 px-6 py-4">
             {!expandedData ? (
               <p className="text-sm text-gray-500">Loading details...</p>
             ) : (

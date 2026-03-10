@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticate } from "../middleware/auth.js";
+import { authenticate, requireAdmin } from "../middleware/auth.js";
 import { requireAppAccess } from "../middleware/appAccess.js";
 import { peopleDirectoryService } from "../services/peopleDirectoryService.js";
 import { createEmployeeSchema, updateEmployeeSchema } from "../validators/peopleDirectory.js";
@@ -31,6 +31,11 @@ router.patch("/employees/:id", async (req, res) => {
   const body = updateEmployeeSchema.parse(req.body);
   const employee = await peopleDirectoryService.updateEmployee(req.params.id as string, body);
   res.json({ data: employee });
+});
+
+router.delete("/employees/:id", requireAdmin, async (req, res) => {
+  await peopleDirectoryService.deleteEmployee(req.params.id as string);
+  res.json({ data: { success: true } });
 });
 
 export default router;

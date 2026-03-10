@@ -25,4 +25,7 @@ export const peopleDirectoryService = {
     if (data.joinDate) data.joinDate = new Date(data.joinDate);
     return prisma.employee.update({ where: { id }, data });
   },
+
+  deleteEmployee: (id: string) =>
+    prisma.employee.delete({ where: { id } }),
 };
