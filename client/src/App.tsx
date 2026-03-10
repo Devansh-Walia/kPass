@@ -14,6 +14,16 @@ const AdminUserDetail = lazy(() => import("./pages/admin/UserDetail"));
 const AdminApps = lazy(() => import("./pages/admin/Apps"));
 const FinanceDashboard = lazy(() => import("./pages/apps/finance/FinanceDashboard"));
 const CrmLayout = lazy(() => import("./pages/apps/crm/CrmLayout"));
+const NeedsRegistryPage = lazy(() => import("./pages/apps/needsRegistry/NeedsRegistryPage"));
+const TaskBoardPage = lazy(() => import("./pages/apps/taskBoard/TaskBoardPage"));
+const PeopleDirectoryPage = lazy(() => import("./pages/apps/peopleDirectory/PeopleDirectoryPage"));
+const StudentTrackerPage = lazy(() => import("./pages/apps/studentTracker/StudentTrackerPage"));
+const AttendancePage = lazy(() => import("./pages/apps/attendance/AttendancePage"));
+const IdeationPage = lazy(() => import("./pages/apps/ideation/IdeationPage"));
+const ContentCalendarPage = lazy(() => import("./pages/apps/contentCalendar/ContentCalendarPage"));
+const EventManagerPage = lazy(() => import("./pages/apps/eventManager/EventManagerPage"));
+const WorkshopTrackerPage = lazy(() => import("./pages/apps/workshopTracker/WorkshopTrackerPage"));
+const DonorMgmtPage = lazy(() => import("./pages/apps/donorMgmt/DonorMgmtPage"));
 
 function Loading() {
   return <div className="flex items-center justify-center p-8">Loading...</div>;
@@ -38,6 +48,16 @@ export default function App() {
                 </Route>
                 <Route path="/apps/finance/*" element={<FinanceDashboard />} />
                 <Route path="/apps/crm/*" element={<CrmLayout />} />
+                <Route path="/apps/needs-registry/*" element={<NeedsRegistryPage />} />
+                <Route path="/apps/task-board/*" element={<TaskBoardPage />} />
+                <Route path="/apps/people-directory/*" element={<PeopleDirectoryPage />} />
+                <Route path="/apps/student-tracker/*" element={<StudentTrackerPage />} />
+                <Route path="/apps/attendance/*" element={<AttendancePage />} />
+                <Route path="/apps/ideation/*" element={<IdeationPage />} />
+                <Route path="/apps/content-calendar/*" element={<ContentCalendarPage />} />
+                <Route path="/apps/event-manager/*" element={<EventManagerPage />} />
+                <Route path="/apps/workshop-tracker/*" element={<WorkshopTrackerPage />} />
+                <Route path="/apps/donor-mgmt/*" element={<DonorMgmtPage />} />
               </Route>
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

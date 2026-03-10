@@ -10,6 +10,16 @@ import appRoutes from "./routes/apps.js";
 import meRoutes from "./routes/me.js";
 import financeRoutes from "./routes/finance.js";
 import crmRoutes from "./routes/crm.js";
+import needsRegistryRoutes from "./routes/needsRegistry.js";
+import taskBoardRoutes from "./routes/taskBoard.js";
+import peopleDirectoryRoutes from "./routes/peopleDirectory.js";
+import studentTrackerRoutes from "./routes/studentTracker.js";
+import attendanceRoutes from "./routes/attendance.js";
+import ideationRoutes from "./routes/ideation.js";
+import contentCalendarRoutes from "./routes/contentCalendar.js";
+import eventManagerRoutes from "./routes/eventManager.js";
+import workshopTrackerRoutes from "./routes/workshopTracker.js";
+import donorMgmtRoutes from "./routes/donorMgmt.js";
 
 export const app = express();
 
@@ -37,6 +47,16 @@ app.use("/api/apps", appRoutes);
 app.use("/api/me", meRoutes);
 app.use("/api/apps/finance", financeRoutes);
 app.use("/api/apps/crm", crmRoutes);
+app.use("/api/apps/needs-registry", needsRegistryRoutes);
+app.use("/api/apps/task-board", taskBoardRoutes);
+app.use("/api/apps/people-directory", peopleDirectoryRoutes);
+app.use("/api/apps/student-tracker", studentTrackerRoutes);
+app.use("/api/apps/attendance", attendanceRoutes);
+app.use("/api/apps/ideation", ideationRoutes);
+app.use("/api/apps/content-calendar", contentCalendarRoutes);
+app.use("/api/apps/event-manager", eventManagerRoutes);
+app.use("/api/apps/workshop-tracker", workshopTrackerRoutes);
+app.use("/api/apps/donor-mgmt", donorMgmtRoutes);
 
 app.use(errorHandler);
 

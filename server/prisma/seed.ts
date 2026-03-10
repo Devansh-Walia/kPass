@@ -41,6 +41,16 @@ async function main() {
   const apps = [
     { name: "Finance Dashboard", slug: "finance", type: "FINANCE" as const, route: "/apps/finance", description: "Track income, expenses, and financial reports" },
     { name: "CRM", slug: "crm", type: "CRM" as const, route: "/apps/crm", description: "Manage contacts, deals, and activities" },
+    { name: "Task Board", slug: "task-board", type: "TASK_BOARD" as const, route: "/apps/task-board", description: "Kanban-style task management across teams" },
+    { name: "Student Tracker", slug: "student-tracker", type: "STUDENT_TRACKER" as const, route: "/apps/student-tracker", description: "Manage student enrollment, attendance, and progress" },
+    { name: "Needs Registry", slug: "needs-registry", type: "NEEDS_REGISTRY" as const, route: "/apps/needs-registry", description: "Track and fulfill children's needs" },
+    { name: "People Directory", slug: "people-directory", type: "HR" as const, route: "/apps/people-directory", description: "Employee profiles and directory" },
+    { name: "Attendance", slug: "attendance", type: "ATTENDANCE" as const, route: "/apps/attendance", description: "Staff attendance and leave management" },
+    { name: "Ideation", slug: "ideation", type: "IDEATION" as const, route: "/apps/ideation", description: "Brainstorm and vote on campaign ideas" },
+    { name: "Content Calendar", slug: "content-calendar", type: "CONTENT_CALENDAR" as const, route: "/apps/content-calendar", description: "Plan and schedule social media content" },
+    { name: "Event Manager", slug: "event-manager", type: "EVENT_MANAGER" as const, route: "/apps/event-manager", description: "Plan events and manage volunteers" },
+    { name: "Workshop Tracker", slug: "workshop-tracker", type: "WORKSHOP" as const, route: "/apps/workshop-tracker", description: "Schedule workshops and track participation" },
+    { name: "Donor Management", slug: "donor-mgmt", type: "DONOR_MGMT" as const, route: "/apps/donor-mgmt", description: "Track donors, sponsorships, and donations" },
   ];
 
   for (const appData of apps) {
