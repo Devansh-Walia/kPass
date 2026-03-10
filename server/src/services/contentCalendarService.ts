@@ -29,4 +29,7 @@ export const contentCalendarService = {
       data,
       include: { createdBy: { select: { firstName: true, lastName: true } } },
     }),
+
+  deletePost: (id: string) =>
+    prisma.contentPost.delete({ where: { id } }),
 };

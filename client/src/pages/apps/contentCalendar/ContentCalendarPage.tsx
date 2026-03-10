@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { contentCalendarApi } from "../../../api/contentCalendar";
+import { useAuth } from "../../../contexts/AuthContext";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 
 interface ContentPost {
   id: string;
@@ -44,6 +46,8 @@ function getFirstDayOfWeek(year: number, month: number): number {
 }
 
 export default function ContentCalendarPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const [tab, setTab] = useState<Tab>("calendar");
 
   // Calendar state
@@ -57,6 +61,10 @@ export default function ContentCalendarPage() {
   const [posts, setPosts] = useState<ContentPost[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [filterPlatform, setFilterPlatform] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState<ContentPost | null>(null);
 
   // Form state
   const [showForm, setShowForm] = useState(false);
@@ -161,6 +169,18 @@ export default function ContentCalendarPage() {
       setFormError(err.response?.data?.error || "Failed to save post.");
     } finally {
       setFormSubmitting(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    try {
+      await contentCalendarApi.deletePost(deleteTarget.id);
+      setDeleteTarget(null);
+      if (tab === "calendar") loadCalendarPosts();
+      else loadListPosts();
+    } catch {
+      setDeleteTarget(null);
     }
   }
 
@@ -433,12 +453,31 @@ export default function ContentCalendarPage() {
                 ))}
               </select>
             </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">All</option>
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s.charAt(0) + s.slice(1).toLowerCase()}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Posts Table */}
-          {listLoading ? (
+          {(() => {
+            const filteredPosts = filterStatus
+              ? posts.filter((p) => p.status === filterStatus)
+              : posts;
+            return listLoading ? (
             <p className="text-gray-500">Loading posts...</p>
-          ) : posts.length === 0 ? (
+          ) : filteredPosts.length === 0 ? (
             <p className="text-gray-500">No posts found.</p>
           ) : (
             <div className="overflow-x-auto">
@@ -454,7 +493,7 @@ export default function ContentCalendarPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {posts.map((post) => (
+                  {filteredPosts.map((post) => (
                     <tr key={post.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium text-gray-900">{post.title}</td>
                       <td className="px-4 py-3">
@@ -483,22 +522,40 @@ export default function ContentCalendarPage() {
                           ? `${post.createdBy.firstName} ${post.createdBy.lastName}`
                           : "-"}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 flex items-center gap-2">
                         <button
                           onClick={() => openEditForm(post)}
                           className="text-indigo-600 hover:text-indigo-800 text-xs font-medium"
                         >
                           Edit
                         </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => setDeleteTarget(post)}
+                            className="text-red-600 hover:text-red-800 text-xs font-medium"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          )}
+          );
+          })()}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete Post"
+        message={`Are you sure you want to delete "${deleteTarget?.title}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

@@ -30,4 +30,9 @@ router.patch("/posts/:id", async (req, res) => {
   res.json({ data: post });
 });
 
+router.delete("/posts/:id", async (req, res) => {
+  await contentCalendarService.deletePost(req.params.id as string);
+  res.json({ data: { success: true } });
+});
+
 export default router;

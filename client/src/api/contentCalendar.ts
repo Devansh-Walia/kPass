@@ -7,4 +7,6 @@ export const contentCalendarApi = {
     apiClient.post("/apps/content-calendar/posts", data).then((res) => res.data.data),
   updatePost: (id: string, data: any) =>
     apiClient.patch(`/apps/content-calendar/posts/${id}`, data).then((res) => res.data.data),
+  deletePost: (id: string) =>
+    apiClient.delete(`/apps/content-calendar/posts/${id}`).then((res) => res.data.data),
 };
