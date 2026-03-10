@@ -31,7 +31,7 @@ app.use(cors({
     // Allow requests with no origin (curl, mobile), localhost, or configured origins
     if (!origin || origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1")) {
       callback(null, true);
-    } else if (origin.endsWith(".ngrok-free.app") || origin.endsWith(".ngrok.io") || origin.endsWith(".up.railway.app")) {
+    } else if (origin.endsWith(".koshishfamily.org") || origin.endsWith(".ngrok-free.app") || origin.endsWith(".ngrok.io") || origin.endsWith(".up.railway.app")) {
       callback(null, true);
     } else if (allowed.some(url => origin === url.trim())) {
       callback(null, true);
