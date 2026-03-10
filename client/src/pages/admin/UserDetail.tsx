@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { usersApi } from "../../api/users";
 import { appsApi } from "../../api/apps";
+import { departmentsApi } from "../../api/departments";
 import { PasswordInput } from "../../components/common/PasswordInput";
 import type { App } from "../../types";
 import { ROLE_BADGE_COLORS, activeStatusBadge, activeStatusLabel } from "../../constants";
 
 interface UserDetailData {
   id: string; email: string; firstName: string; lastName: string; role: string; isActive: boolean;
-  apps: { app: { id: string; name: string; slug: string } }[];
+  apps: { app: { id: string; name: string; slug: string }; source: string }[];
+  departments: { department: { id: string; name: string; slug: string } }[];
 }
 
 export default function UserDetail() {
@@ -16,6 +18,7 @@ export default function UserDetail() {
   const navigate = useNavigate();
   const [user, setUser] = useState<UserDetailData | null>(null);
   const [allApps, setAllApps] = useState<App[]>([]);
+  const [allDepts, setAllDepts] = useState<any[]>([]);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ firstName: "", lastName: "", role: "" });
   const [newPassword, setNewPassword] = useState("");
@@ -25,6 +28,7 @@ export default function UserDetail() {
     if (!id) return;
     usersApi.getById(id).then(u => { setUser(u); setForm({ firstName: u.firstName, lastName: u.lastName, role: u.role }); });
     appsApi.list().then(setAllApps);
+    departmentsApi.list().then(setAllDepts);
   }, [id]);
 
   const handleUpdate = async () => {
@@ -105,13 +109,57 @@ export default function UserDetail() {
         )}
       </div>
 
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Departments</h3>
+        <div className="flex flex-wrap gap-2">
+          {allDepts.map((dept: any) => {
+            const isAssigned = user.departments.some(d => d.department.id === dept.id);
+            const appNames = dept.defaultApps.map((da: any) => da.app.name).join(", ");
+            return (
+              <button
+                key={dept.id}
+                onClick={async () => {
+                  if (isAssigned) {
+                    await departmentsApi.removeUser(id!, dept.id);
+                  } else {
+                    await departmentsApi.assignUser(id!, dept.id);
+                  }
+                  const u = await usersApi.getById(id!);
+                  setUser(u);
+                }}
+                title={appNames ? `Default apps: ${appNames}` : "No default apps"}
+                className={`text-sm px-3 py-1.5 rounded-lg border transition-colors ${
+                  isAssigned
+                    ? "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700"
+                    : "text-gray-600 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                {dept.name}
+              </button>
+            );
+          })}
+        </div>
+        {user.departments.length > 0 && (
+          <p className="text-xs text-gray-400 mt-3">
+            Apps from departments are auto-assigned. Hover buttons to see which apps they grant.
+          </p>
+        )}
+      </div>
+
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">App Access</h3>
         <div className="space-y-2 mb-4">
-          {user.apps.map(({ app }) => (
+          {user.apps.map(({ app, source }) => (
             <div key={app.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded">
-              <span className="text-sm text-gray-900">{app.name}</span>
-              <button onClick={() => handleRevokeApp(app.id)} className="text-xs text-red-600 hover:text-red-800">Revoke</button>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-900">{app.name}</span>
+                {source === "department" && (
+                  <span className="text-[10px] px-1.5 py-0.5 bg-indigo-100 text-indigo-600 rounded font-medium">dept</span>
+                )}
+              </div>
+              {source === "manual" && (
+                <button onClick={() => handleRevokeApp(app.id)} className="text-xs text-red-600 hover:text-red-800">Revoke</button>
+              )}
             </div>
           ))}
           {user.apps.length === 0 && <p className="text-sm text-gray-500">No apps assigned</p>}
