@@ -35,6 +35,25 @@ router.patch("/students/:id", async (req, res) => {
   res.json({ data: student });
 });
 
+router.delete("/students/:id", async (req, res) => {
+  await studentTrackerService.deleteStudent(req.params.id as string);
+  res.json({ data: { message: "Student deleted successfully" } });
+});
+
+// Report
+router.get("/report", async (req, res) => {
+  const { batch, startDate, endDate } = req.query;
+  if (!batch || !startDate || !endDate) {
+    return res.status(400).json({ error: "batch, startDate, and endDate are required" });
+  }
+  const report = await studentTrackerService.getAttendanceReport(
+    batch as string,
+    new Date(startDate as string),
+    new Date(endDate as string)
+  );
+  res.json({ data: report });
+});
+
 // Attendance
 router.post("/attendance", async (req, res) => {
   const { date, records } = markAttendanceSchema.parse(req.body);

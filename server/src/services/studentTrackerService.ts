@@ -30,6 +30,9 @@ export const studentTrackerService = {
   updateStudent: (id: string, data: any) =>
     prisma.student.update({ where: { id }, data }),
 
+  deleteStudent: (id: string) =>
+    prisma.student.delete({ where: { id } }),
+
   markAttendance: async (date: Date, records: { studentId: string; status: AttendanceStatus }[], userId: string) => {
     const results = await Promise.all(
       records.map((r) =>
@@ -65,10 +68,30 @@ export const studentTrackerService = {
       },
       include: { student: { select: { id: true, name: true } } },
     });
+
+    // Aggregate per-student stats
+    const studentMap: Record<string, { name: string; total: number; present: number; absent: number; late: number }> = {};
+    for (const r of records) {
+      const sid = r.student.id;
+      if (!studentMap[sid]) {
+        studentMap[sid] = { name: r.student.name, total: 0, present: 0, absent: 0, late: 0 };
+      }
+      studentMap[sid].total++;
+      if (r.status === AttendanceStatus.PRESENT) studentMap[sid].present++;
+      else if (r.status === AttendanceStatus.ABSENT) studentMap[sid].absent++;
+      else if (r.status === AttendanceStatus.LATE) studentMap[sid].late++;
+    }
+
+    const students = Object.entries(studentMap).map(([id, stats]) => ({
+      id,
+      ...stats,
+      attendancePercent: stats.total > 0 ? Math.round(((stats.present + stats.late) / stats.total) * 100) : 0,
+    }));
+
     const total = records.length;
     const present = records.filter((r: any) => r.status === AttendanceStatus.PRESENT).length;
     const absent = records.filter((r: any) => r.status === AttendanceStatus.ABSENT).length;
     const late = records.filter((r: any) => r.status === AttendanceStatus.LATE).length;
-    return { total, present, absent, late, records };
+    return { total, present, absent, late, students };
   },
 };

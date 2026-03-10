@@ -1,8 +1,10 @@
 import { useEffect, useState, useMemo } from "react";
 import { studentTrackerApi } from "../../../api/studentTracker";
 import { ATTENDANCE_STATUS_COLORS } from "../../../constants";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { useAuth } from "../../../contexts/AuthContext";
 
-type Tab = "students" | "attendance";
+type Tab = "students" | "attendance" | "report";
 
 interface Student {
   id: string;
@@ -26,6 +28,24 @@ interface AttendanceRecord {
   markedBy?: { firstName: string; lastName: string };
 }
 
+interface ReportStudent {
+  id: string;
+  name: string;
+  total: number;
+  present: number;
+  absent: number;
+  late: number;
+  attendancePercent: number;
+}
+
+interface Report {
+  total: number;
+  present: number;
+  absent: number;
+  late: number;
+  students: ReportStudent[];
+}
+
 const STATUS_COLORS: Record<string, string> = {
   PRESENT: ATTENDANCE_STATUS_COLORS.PRESENT,
   ABSENT: ATTENDANCE_STATUS_COLORS.ABSENT,
@@ -38,6 +58,7 @@ export default function StudentTrackerPage() {
   const tabs: { key: Tab; label: string }[] = [
     { key: "students", label: "Students" },
     { key: "attendance", label: "Attendance" },
+    { key: "report", label: "Report" },
   ];
 
   return (
@@ -64,6 +85,7 @@ export default function StudentTrackerPage() {
 
       {tab === "students" && <StudentsTab />}
       {tab === "attendance" && <AttendanceTab />}
+      {tab === "report" && <ReportTab />}
     </div>
   );
 }
@@ -71,6 +93,7 @@ export default function StudentTrackerPage() {
 /* ───────────── Students Tab ───────────── */
 
 function StudentsTab() {
+  const { user } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterBatch, setFilterBatch] = useState("");
@@ -80,9 +103,16 @@ function StudentsTab() {
 
   // Form state
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", age: "", guardianName: "", guardianPhone: "", batch: "" });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState<Student | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const isAdmin = user?.role === "ADMIN";
 
   const loadStudents = async () => {
     setLoading(true);
@@ -123,7 +153,27 @@ function StudentsTab() {
     }
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const startEdit = (student: Student) => {
+    setEditingId(student.id);
+    setForm({
+      name: student.name,
+      age: String(student.age),
+      guardianName: student.guardianName,
+      guardianPhone: student.guardianPhone || "",
+      batch: student.batch,
+    });
+    setShowForm(true);
+    setFormError("");
+  };
+
+  const cancelForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setForm({ name: "", age: "", guardianName: "", guardianPhone: "", batch: "" });
+    setFormError("");
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
     if (!form.name.trim() || !form.guardianName.trim() || !form.batch.trim() || !form.age) {
@@ -132,20 +182,42 @@ function StudentsTab() {
     }
     setSubmitting(true);
     try {
-      await studentTrackerApi.createStudent({
+      const payload = {
         name: form.name.trim(),
         age: parseInt(form.age),
         guardianName: form.guardianName.trim(),
         guardianPhone: form.guardianPhone.trim() || undefined,
         batch: form.batch.trim(),
-      });
-      setForm({ name: "", age: "", guardianName: "", guardianPhone: "", batch: "" });
-      setShowForm(false);
+      };
+      if (editingId) {
+        await studentTrackerApi.updateStudent(editingId, payload);
+      } else {
+        await studentTrackerApi.createStudent(payload);
+      }
+      cancelForm();
       await loadStudents();
     } catch (err: any) {
-      setFormError(err.response?.data?.error || "Failed to create student.");
+      setFormError(err.response?.data?.error || (editingId ? "Failed to update student." : "Failed to create student."));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await studentTrackerApi.deleteStudent(deleteTarget.id);
+      setDeleteTarget(null);
+      if (expandedId === deleteTarget.id) {
+        setExpandedId(null);
+        setExpandedData(null);
+      }
+      await loadStudents();
+    } catch {
+      // silently fail
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -178,7 +250,15 @@ function StudentsTab() {
           </select>
         </div>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            if (showForm) {
+              cancelForm();
+            } else {
+              setEditingId(null);
+              setForm({ name: "", age: "", guardianName: "", guardianPhone: "", batch: "" });
+              setShowForm(true);
+            }
+          }}
           className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
         >
           {showForm ? "Cancel" : "Add Student"}
@@ -186,7 +266,8 @@ function StudentsTab() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleCreate} className="rounded border border-gray-200 bg-gray-50 p-4 space-y-3">
+        <form onSubmit={handleSubmit} className="rounded border border-gray-200 bg-gray-50 p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-gray-700">{editingId ? "Edit Student" : "Add Student"}</h3>
           <div className="grid grid-cols-2 gap-3">
             <input
               required
@@ -225,13 +306,24 @@ function StudentsTab() {
               className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             />
           </div>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {submitting ? "Saving..." : "Save Student"}
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {submitting ? "Saving..." : editingId ? "Update Student" : "Save Student"}
+            </button>
+            {editingId && (
+              <button
+                type="button"
+                onClick={cancelForm}
+                className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel Edit
+              </button>
+            )}
+          </div>
           {formError && <p className="text-red-600 text-sm">{formError}</p>}
         </form>
       )}
@@ -243,8 +335,8 @@ function StudentsTab() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {["Name", "Age", "Guardian", "Batch", "Status", "Enrolled"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                {["Name", "Age", "Guardian", "Batch", "Status", "Enrolled", ""].map((h, i) => (
+                  <th key={i} className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                     {h}
                   </th>
                 ))}
@@ -253,7 +345,7 @@ function StudentsTab() {
             <tbody className="divide-y divide-gray-200 bg-white">
               {students.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-500">
+                  <td colSpan={7} className="px-4 py-6 text-center text-sm text-gray-500">
                     No students found.
                   </td>
                 </tr>
@@ -265,12 +357,23 @@ function StudentsTab() {
                   expanded={expandedId === s.id}
                   expandedData={expandedId === s.id ? expandedData : null}
                   onToggle={() => toggleExpand(s.id)}
+                  onEdit={() => startEdit(s)}
+                  onDelete={isAdmin ? () => setDeleteTarget(s) : undefined}
                 />
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete Student"
+        message={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
+        confirmLabel={deleting ? "Deleting..." : "Delete"}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
@@ -280,11 +383,15 @@ function StudentRow({
   expanded,
   expandedData,
   onToggle,
+  onEdit,
+  onDelete,
 }: {
   student: Student;
   expanded: boolean;
   expandedData: Student | null;
   onToggle: () => void;
+  onEdit: () => void;
+  onDelete?: () => void;
 }) {
   return (
     <>
@@ -304,10 +411,28 @@ function StudentRow({
         <td className="px-4 py-3 text-sm text-gray-600">
           {new Date(student.enrollmentDate).toLocaleDateString()}
         </td>
+        <td className="px-4 py-3 text-sm">
+          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={onEdit}
+              className="rounded px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+            >
+              Edit
+            </button>
+            {onDelete && (
+              <button
+                onClick={onDelete}
+                className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+              >
+                Delete
+              </button>
+            )}
+          </div>
+        </td>
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={6} className="bg-gray-50 px-6 py-4">
+          <td colSpan={7} className="bg-gray-50 px-6 py-4">
             {!expandedData ? (
               <p className="text-sm text-gray-500">Loading details...</p>
             ) : (
@@ -527,6 +652,161 @@ function AttendanceTab() {
 
       {!loading && batch && students.length === 0 && (
         <p className="text-sm text-gray-500">No active students found in this batch.</p>
+      )}
+    </div>
+  );
+}
+
+/* ───────────── Report Tab ───────────── */
+
+function ReportTab() {
+  const [allStudents, setAllStudents] = useState<Student[]>([]);
+  const [batch, setBatch] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [report, setReport] = useState<Report | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    studentTrackerApi.getStudents().then((data) => setAllStudents(Array.isArray(data) ? data : [])).catch(() => {});
+  }, []);
+
+  const batches = useMemo(() => {
+    const set = new Set(allStudents.map((s) => s.batch));
+    return Array.from(set).sort();
+  }, [allStudents]);
+
+  const handleGenerate = async () => {
+    if (!batch || !startDate || !endDate) {
+      setError("Please select a batch and date range.");
+      return;
+    }
+    setError("");
+    setLoading(true);
+    setReport(null);
+    try {
+      const data = await studentTrackerApi.getReport(batch, startDate, endDate);
+      setReport(data);
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Failed to generate report.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end gap-4">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Batch</label>
+          <select
+            value={batch}
+            onChange={(e) => setBatch(e.target.value)}
+            className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+          >
+            <option value="">Select Batch</option>
+            {batches.map((b) => (
+              <option key={b} value={b}>{b}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Start Date</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">End Date</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+          />
+        </div>
+        <button
+          onClick={handleGenerate}
+          disabled={loading}
+          className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+        >
+          {loading ? "Generating..." : "Generate Report"}
+        </button>
+      </div>
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      {report && (
+        <div className="space-y-4">
+          {/* Summary cards */}
+          <div className="grid grid-cols-4 gap-4">
+            <div className="rounded border border-gray-200 bg-white p-4 text-center">
+              <p className="text-xs font-medium uppercase text-gray-500">Total Records</p>
+              <p className="text-2xl font-bold text-gray-900">{report.total}</p>
+            </div>
+            <div className="rounded border border-green-200 bg-green-50 p-4 text-center">
+              <p className="text-xs font-medium uppercase text-green-600">Present</p>
+              <p className="text-2xl font-bold text-green-700">{report.present}</p>
+            </div>
+            <div className="rounded border border-red-200 bg-red-50 p-4 text-center">
+              <p className="text-xs font-medium uppercase text-red-600">Absent</p>
+              <p className="text-2xl font-bold text-red-700">{report.absent}</p>
+            </div>
+            <div className="rounded border border-yellow-200 bg-yellow-50 p-4 text-center">
+              <p className="text-xs font-medium uppercase text-yellow-600">Late</p>
+              <p className="text-2xl font-bold text-yellow-700">{report.late}</p>
+            </div>
+          </div>
+
+          {/* Per-student table */}
+          {report.students.length > 0 && (
+            <div className="overflow-hidden rounded border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {["Name", "Total", "Present", "Absent", "Late", "Attendance %"].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {report.students.map((s) => (
+                    <tr key={s.id}>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{s.name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{s.total}</td>
+                      <td className="px-4 py-3 text-sm text-green-600 font-medium">{s.present}</td>
+                      <td className="px-4 py-3 text-sm text-red-600 font-medium">{s.absent}</td>
+                      <td className="px-4 py-3 text-sm text-yellow-600 font-medium">{s.late}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <span
+                          className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${
+                            s.attendancePercent >= 75
+                              ? "bg-green-100 text-green-700"
+                              : s.attendancePercent >= 50
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {s.attendancePercent}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {report.students.length === 0 && (
+            <p className="text-sm text-gray-500">No attendance records found for this batch in the selected date range.</p>
+          )}
+        </div>
       )}
     </div>
   );
