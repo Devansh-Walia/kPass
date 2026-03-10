@@ -38,6 +38,33 @@ model User {
   contacts           Contact[]
   ownedDeals         Deal[]
   activities         Activity[]
+  // Task Board
+  createdBoards      Board[]
+  assignedTasks      TaskCard[]       @relation("TaskAssignee")
+  createdTasks       TaskCard[]       @relation("TaskCreator")
+  // Student Tracker
+  createdStudents    Student[]
+  markedAttendance   StudentAttendance[] @relation("AttendanceMarker")
+  // Needs Registry
+  requestedNeeds     NeedRequest[]    @relation("NeedRequester")
+  approvedNeeds      NeedRequest[]    @relation("NeedApprover")
+  // HR
+  createdEmployees   Employee[]
+  employee           Employee?        @relation("EmployeeUser")
+  markedStaffAtt     StaffAttendance[] @relation("StaffAttMarker")
+  reviewedLeaves     LeaveRequest[]   @relation("LeaveReviewer")
+  // Ideation
+  createdIdeas       Idea[]
+  // Content Calendar
+  createdPosts       ContentPost[]
+  // Events
+  createdEvents      Event[]
+  volunteeredEvents  EventVolunteer[]
+  // Workshops
+  createdWorkshops   Workshop[]
+  // Donors
+  createdDonors      Donor[]
+  createdDonations   Donation[]
 }
 
 enum AppType {
@@ -45,6 +72,15 @@ enum AppType {
   CRM
   MARKETING
   IDEATION
+  TASK_BOARD
+  STUDENT_TRACKER
+  NEEDS_REGISTRY
+  HR
+  ATTENDANCE
+  CONTENT_CALENDAR
+  EVENT_MANAGER
+  WORKSHOP
+  DONOR_MGMT
   CUSTOM
 }
 
@@ -150,4 +186,328 @@ model Activity {
   createdById String
   createdBy   User         @relation(fields: [createdById], references: [id])
   createdAt   DateTime     @default(now())
+}
+
+// ─── Task Board ───────────────────────────────────────
+
+model Board {
+  id          String     @id @default(uuid())
+  name        String
+  description String?
+  createdById String
+  createdBy   User       @relation(fields: [createdById], references: [id])
+  tasks       TaskCard[]
+  createdAt   DateTime   @default(now())
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model TaskCard {
+  id          String       @id @default(uuid())
+  title       String
+  description String?
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  dueDate     DateTime?
+  boardId     String
+  board       Board        @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  assigneeId  String?
+  assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdById String
+  createdBy   User         @relation("TaskCreator", fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+// ─── Student Tracker ──────────────────────────────────
+
+model Student {
+  id            String              @id @default(uuid())
+  name          String
+  age           Int
+  guardianName  String
+  guardianPhone String?
+  batch         String
+  enrollmentDate DateTime
+  isActive      Boolean             @default(true)
+  createdById   String
+  createdBy     User                @relation(fields: [createdById], references: [id])
+  attendance    StudentAttendance[]
+  workshopParticipations WorkshopParticipant[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+}
+
+model StudentAttendance {
+  id         String           @id @default(uuid())
+  studentId  String
+  student    Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date       DateTime
+  status     AttendanceStatus
+  markedById String
+  markedBy   User             @relation("AttendanceMarker", fields: [markedById], references: [id])
+  createdAt  DateTime         @default(now())
+
+  @@unique([studentId, date])
+}
+
+// ─── Needs Registry ───────────────────────────────────
+
+enum NeedCategory {
+  SANITATION
+  HEALTH
+  SUPPLIES
+  OTHER
+}
+
+enum NeedStatus {
+  PENDING
+  APPROVED
+  FULFILLED
+  REJECTED
+}
+
+model NeedRequest {
+  id            String       @id @default(uuid())
+  childName     String
+  category      NeedCategory
+  description   String
+  status        NeedStatus   @default(PENDING)
+  requestedById String
+  requestedBy   User         @relation("NeedRequester", fields: [requestedById], references: [id])
+  approvedById  String?
+  approvedBy    User?        @relation("NeedApprover", fields: [approvedById], references: [id])
+  fulfilledAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+// ─── HR — People Directory ────────────────────────────
+
+model Employee {
+  id          String            @id @default(uuid())
+  name        String
+  email       String?
+  phone       String?
+  department  String
+  designation String
+  joinDate    DateTime
+  isActive    Boolean           @default(true)
+  userId      String?           @unique
+  user        User?             @relation("EmployeeUser", fields: [userId], references: [id])
+  createdById String
+  createdBy   User              @relation(fields: [createdById], references: [id])
+  attendance  StaffAttendance[]
+  leaves      LeaveRequest[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+// ─── HR — Attendance ──────────────────────────────────
+
+enum StaffAttendanceStatus {
+  PRESENT
+  ABSENT
+  LEAVE
+}
+
+model StaffAttendance {
+  id         String                @id @default(uuid())
+  employeeId String
+  employee   Employee              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime
+  checkIn    DateTime?
+  checkOut   DateTime?
+  status     StaffAttendanceStatus
+  markedById String
+  markedBy   User                  @relation("StaffAttMarker", fields: [markedById], references: [id])
+  createdAt  DateTime              @default(now())
+
+  @@unique([employeeId, date])
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model LeaveRequest {
+  id           String      @id @default(uuid())
+  employeeId   String
+  employee     Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  startDate    DateTime
+  endDate      DateTime
+  reason       String
+  status       LeaveStatus @default(PENDING)
+  reviewedById String?
+  reviewedBy   User?       @relation("LeaveReviewer", fields: [reviewedById], references: [id])
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+// ─── Ideation ─────────────────────────────────────────
+
+enum IdeaStage {
+  IDEA
+  APPROVED
+  IN_PROGRESS
+  DONE
+}
+
+model Idea {
+  id          String    @id @default(uuid())
+  title       String
+  description String
+  stage       IdeaStage @default(IDEA)
+  votes       Int       @default(0)
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ─── Content Calendar ─────────────────────────────────
+
+enum Platform {
+  INSTAGRAM
+  FACEBOOK
+  TWITTER
+  OTHER
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+}
+
+model ContentPost {
+  id            String     @id @default(uuid())
+  title         String
+  content       String?
+  platform      Platform
+  scheduledDate DateTime
+  status        PostStatus @default(DRAFT)
+  createdById   String
+  createdBy     User       @relation(fields: [createdById], references: [id])
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+// ─── Event Manager ────────────────────────────────────
+
+enum EventStatus {
+  PLANNING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+model Event {
+  id          String           @id @default(uuid())
+  title       String
+  description String?
+  date        DateTime
+  location    String?
+  status      EventStatus      @default(PLANNING)
+  budget      Float?
+  createdById String
+  createdBy   User             @relation(fields: [createdById], references: [id])
+  volunteers  EventVolunteer[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model EventVolunteer {
+  id      String   @id @default(uuid())
+  eventId String
+  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User     @relation(fields: [userId], references: [id])
+  role    String?
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, userId])
+}
+
+// ─── Workshop Tracker ─────────────────────────────────
+
+model Workshop {
+  id              String                @id @default(uuid())
+  title           String
+  description     String?
+  date            DateTime
+  instructor      String
+  materialsNeeded String?
+  maxParticipants Int?
+  createdById     String
+  createdBy       User                  @relation(fields: [createdById], references: [id])
+  participants    WorkshopParticipant[]
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+}
+
+model WorkshopParticipant {
+  id         String   @id @default(uuid())
+  workshopId String
+  workshop   Workshop @relation(fields: [workshopId], references: [id], onDelete: Cascade)
+  studentId  String?
+  student    Student? @relation(fields: [studentId], references: [id])
+  studentName String
+  attended   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@unique([workshopId, studentName])
+}
+
+// ─── Donor / Sponsor Management ───────────────────────
+
+enum DonorType {
+  INDIVIDUAL
+  CORPORATE
+}
+
+model Donor {
+  id          String     @id @default(uuid())
+  name        String
+  email       String?
+  phone       String?
+  type        DonorType
+  notes       String?
+  createdById String
+  createdBy   User       @relation(fields: [createdById], references: [id])
+  donations   Donation[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Donation {
+  id          String   @id @default(uuid())
+  donorId     String
+  donor       Donor    @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  amount      Float
+  date        DateTime
+  purpose     String?
+  receiptNo   String?
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
 }
