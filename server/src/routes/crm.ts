@@ -32,7 +32,7 @@ router.patch("/contacts/:id", async (req, res) => {
 });
 
 router.delete("/contacts/:id", requireAdmin, async (req, res) => {
-  await crmService.deleteContact(req.params.id);
+  await crmService.deleteContact(req.params.id as string);
   res.json({ data: { message: "Contact deleted" } });
 });
 
@@ -55,7 +55,7 @@ router.patch("/deals/:id", async (req, res) => {
 });
 
 router.delete("/deals/:id", requireAdmin, async (req, res) => {
-  await crmService.deleteDeal(req.params.id);
+  await crmService.deleteDeal(req.params.id as string);
   res.json({ data: { message: "Deal deleted" } });
 });
 
@@ -72,7 +72,7 @@ router.post("/activities", async (req, res) => {
 });
 
 router.delete("/activities/:id", requireAdmin, async (req, res) => {
-  await crmService.deleteActivity(req.params.id);
+  await crmService.deleteActivity(req.params.id as string);
   res.json({ data: { message: "Activity deleted" } });
 });
 
