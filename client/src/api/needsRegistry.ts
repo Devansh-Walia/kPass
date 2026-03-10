@@ -7,6 +7,10 @@ export const needsRegistryApi = {
       .then((res) => res.data.data),
   createRequest: (data: any) =>
     apiClient.post("/apps/needs-registry/requests", data).then((res) => res.data.data),
+  updateRequest: (id: string, data: any) =>
+    apiClient.put(`/apps/needs-registry/requests/${id}`, data).then((res) => res.data.data),
   updateStatus: (id: string, data: any) =>
     apiClient.patch(`/apps/needs-registry/requests/${id}`, data).then((res) => res.data.data),
+  deleteRequest: (id: string) =>
+    apiClient.delete(`/apps/needs-registry/requests/${id}`).then((res) => res.data.data),
 };

@@ -23,6 +23,19 @@ export const needsRegistryService = {
       },
     }),
 
+  updateRequest: (id: string, data: { childName?: string; category?: any; description?: string }) =>
+    prisma.needRequest.update({
+      where: { id },
+      data,
+      include: {
+        requestedBy: { select: { firstName: true, lastName: true } },
+        approvedBy: { select: { firstName: true, lastName: true } },
+      },
+    }),
+
+  deleteRequest: (id: string) =>
+    prisma.needRequest.delete({ where: { id } }),
+
   updateStatus: (id: string, data: { status: string; approvedById?: string }) => {
     const updateData: any = { status: data.status };
     if (data.status === NeedStatus.APPROVED && data.approvedById) {

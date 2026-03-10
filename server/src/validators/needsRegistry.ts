@@ -6,6 +6,12 @@ export const createNeedSchema = z.object({
   description: z.string().min(1),
 });
 
+export const updateNeedSchema = z.object({
+  childName: z.string().min(1).optional(),
+  category: z.enum(["SANITATION", "HEALTH", "SUPPLIES", "OTHER"]).optional(),
+  description: z.string().min(1).optional(),
+});
+
 export const updateNeedStatusSchema = z.object({
   status: z.enum(["PENDING", "APPROVED", "FULFILLED", "REJECTED"]),
   approvedById: z.string().uuid().optional(),
