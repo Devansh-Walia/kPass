@@ -39,7 +39,34 @@ export const APP_TYPE_COLORS: Record<string, string> = {
   CRM: "bg-blue-100 text-blue-700",
   MARKETING: "bg-orange-100 text-orange-700",
   IDEATION: "bg-purple-100 text-purple-700",
+  TASK_BOARD: "bg-sky-100 text-sky-700",
+  STUDENT_TRACKER: "bg-amber-100 text-amber-700",
+  NEEDS_REGISTRY: "bg-rose-100 text-rose-700",
+  HR: "bg-teal-100 text-teal-700",
+  ATTENDANCE: "bg-teal-100 text-teal-700",
+  CONTENT_CALENDAR: "bg-orange-100 text-orange-700",
+  EVENT_MANAGER: "bg-pink-100 text-pink-700",
+  WORKSHOP: "bg-indigo-100 text-indigo-700",
+  DONOR_MGMT: "bg-cyan-100 text-cyan-700",
   CUSTOM: "bg-gray-100 text-gray-700",
+};
+
+/** Friendly display labels for app types. */
+export const APP_TYPE_LABELS: Record<string, string> = {
+  FINANCE: "Finance",
+  CRM: "CRM",
+  MARKETING: "Marketing",
+  IDEATION: "Ideation",
+  TASK_BOARD: "Tasks",
+  STUDENT_TRACKER: "Pathshala",
+  NEEDS_REGISTRY: "CDK",
+  HR: "HR",
+  ATTENDANCE: "HR",
+  CONTENT_CALENDAR: "Marketing",
+  EVENT_MANAGER: "PR",
+  WORKSHOP: "Art & Craft",
+  DONOR_MGMT: "Sales",
+  CUSTOM: "Custom",
 };
 
 /** Finance transaction type colors. */

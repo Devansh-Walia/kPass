@@ -5,11 +5,11 @@ import { AdBanner } from "../common/AdBanner";
 
 export function AppShell() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-screen flex flex-col bg-gray-50">
       <TopBar />
-      <div className="flex min-h-[calc(100vh-4rem)]">
+      <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 p-6 overflow-auto">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           <Outlet />
           <AdBanner />
         </main>
