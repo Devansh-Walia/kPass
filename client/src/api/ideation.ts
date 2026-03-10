@@ -1,0 +1,14 @@
+import { apiClient } from "./client";
+
+export const ideationApi = {
+  getIdeas: (stage?: string) =>
+    apiClient
+      .get("/apps/ideation/ideas", { params: stage ? { stage } : {} })
+      .then((res) => res.data.data),
+  createIdea: (data: { title: string; description: string }) =>
+    apiClient.post("/apps/ideation/ideas", data).then((res) => res.data.data),
+  updateIdea: (id: string, data: any) =>
+    apiClient.patch(`/apps/ideation/ideas/${id}`, data).then((res) => res.data.data),
+  voteIdea: (id: string) =>
+    apiClient.post(`/apps/ideation/ideas/${id}/vote`).then((res) => res.data.data),
+};
