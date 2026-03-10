@@ -1,7 +1,8 @@
 import { prisma } from "../lib/prisma.js";
+import { DonorType } from "@prisma/client";
 
 export const donorMgmtService = {
-  listDonors: (filters?: { type?: "INDIVIDUAL" | "CORPORATE"; search?: string }) => {
+  listDonors: (filters?: { type?: DonorType; search?: string }) => {
     const where: any = {};
     if (filters?.type) where.type = filters.type;
     if (filters?.search) where.name = { contains: filters.search, mode: "insensitive" };
@@ -25,7 +26,7 @@ export const donorMgmtService = {
     return { ...donor, totalDonated };
   },
 
-  createDonor: (data: { name: string; email?: string; phone?: string; type: "INDIVIDUAL" | "CORPORATE"; notes?: string }, userId: string) =>
+  createDonor: (data: { name: string; email?: string; phone?: string; type: DonorType; notes?: string }, userId: string) =>
     prisma.donor.create({ data: { ...data, createdById: userId } }),
 
   updateDonor: (id: string, data: any) =>

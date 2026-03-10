@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma.js";
+import { TaskStatus, TaskPriority } from "@prisma/client";
 
 export const taskBoardService = {
   listBoards: () => prisma.board.findMany({ orderBy: { createdAt: "desc" } }),
@@ -17,13 +18,13 @@ export const taskBoardService = {
       },
     }),
 
-  createTask: (data: { title: string; description?: string; priority?: "LOW" | "MEDIUM" | "HIGH"; dueDate?: Date; assigneeId?: string }, boardId: string, userId: string) =>
+  createTask: (data: { title: string; description?: string; priority?: TaskPriority; dueDate?: Date; assigneeId?: string }, boardId: string, userId: string) =>
     prisma.taskCard.create({
       data: { ...data, boardId, createdById: userId },
       include: { assignee: { select: { firstName: true, lastName: true } } },
     }),
 
-  updateTask: (id: string, data: { title?: string; description?: string; status?: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE"; priority?: "LOW" | "MEDIUM" | "HIGH"; dueDate?: Date; assigneeId?: string | null }) =>
+  updateTask: (id: string, data: { title?: string; description?: string; status?: TaskStatus; priority?: TaskPriority; dueDate?: Date; assigneeId?: string | null }) =>
     prisma.taskCard.update({
       where: { id },
       data,

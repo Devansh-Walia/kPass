@@ -3,6 +3,7 @@ import { authenticate } from "../middleware/auth.js";
 import { requireAppAccess } from "../middleware/appAccess.js";
 import { financeService } from "../services/financeService.js";
 import { createCategorySchema, createTransactionSchema } from "../validators/finance.js";
+import type { TransactionType } from "@prisma/client";
 
 const router = Router();
 router.use(authenticate, requireAppAccess("finance"));
@@ -23,7 +24,7 @@ router.get("/transactions", async (req, res) => {
   const transactions = await financeService.listTransactions({
     startDate: startDate ? new Date(startDate as string) : undefined,
     endDate: endDate ? new Date(endDate as string) : undefined,
-    type: type as "INCOME" | "EXPENSE" | undefined,
+    type: type as TransactionType | undefined,
     categoryId: categoryId as string | undefined,
   });
   res.json({ data: transactions });

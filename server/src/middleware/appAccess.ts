@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../lib/prisma.js";
+import { Role } from "@prisma/client";
 
 export function requireAppAccess(appSlug: string) {
   return async (req: Request, res: Response, next: NextFunction) => {
-    if (req.user?.role === "ADMIN") return next();
+    if (req.user?.role === Role.ADMIN) return next();
 
     const app = await prisma.app.findUnique({ where: { slug: appSlug } });
     if (!app) return res.status(404).json({ error: "App not found" });

@@ -3,6 +3,7 @@ import { authenticate } from "../middleware/auth.js";
 import { requireAppAccess } from "../middleware/appAccess.js";
 import { attendanceService } from "../services/attendanceService.js";
 import { markStaffAttendanceSchema, createLeaveSchema, updateLeaveStatusSchema } from "../validators/attendance.js";
+import type { LeaveStatus } from "@prisma/client";
 
 const router = Router();
 router.use(authenticate, requireAppAccess("attendance"));
@@ -30,7 +31,7 @@ router.post("/daily", async (req, res) => {
 // Leave requests
 router.get("/leaves", async (req, res) => {
   const { status } = req.query;
-  const leaves = await attendanceService.listLeaves(status as "PENDING" | "APPROVED" | "REJECTED" | undefined);
+  const leaves = await attendanceService.listLeaves(status as LeaveStatus | undefined);
   res.json({ data: leaves });
 });
 

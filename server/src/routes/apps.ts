@@ -2,12 +2,13 @@ import { Router } from "express";
 import { authenticate, requireAdmin } from "../middleware/auth.js";
 import { appService } from "../services/appService.js";
 import { createAppSchema, updateAppSchema } from "../validators/apps.js";
+import { Role } from "@prisma/client";
 
 const router = Router();
 
 // GET /api/apps — admin gets all, member gets assigned
 router.get("/", authenticate, async (req, res) => {
-  const apps = req.user!.role === "ADMIN"
+  const apps = req.user!.role === Role.ADMIN
     ? await appService.listAll()
     : await appService.listForUser(req.user!.id);
   res.json({ data: apps });

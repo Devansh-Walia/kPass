@@ -1,6 +1,7 @@
 import { prisma } from "../lib/prisma.js";
 import { comparePassword } from "../lib/password.js";
 import { generateAccessToken, generateRefreshToken } from "../lib/jwt.js";
+import type { Role } from "@prisma/client";
 
 export const authService = {
   async login(email: string, password: string) {
@@ -28,7 +29,7 @@ export const authService = {
     };
   },
 
-  async refresh(userId: string, role: "ADMIN" | "MEMBER") {
+  async refresh(userId: string, role: Role) {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user || !user.isActive) throw new Error("Invalid refresh");
 

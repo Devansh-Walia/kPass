@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma.js";
+import { AttendanceStatus } from "@prisma/client";
 
 export const studentTrackerService = {
   listStudents: (filters?: { batch?: string; isActive?: boolean }) => {
@@ -29,7 +30,7 @@ export const studentTrackerService = {
   updateStudent: (id: string, data: any) =>
     prisma.student.update({ where: { id }, data }),
 
-  markAttendance: async (date: Date, records: { studentId: string; status: "PRESENT" | "ABSENT" | "LATE" }[], userId: string) => {
+  markAttendance: async (date: Date, records: { studentId: string; status: AttendanceStatus }[], userId: string) => {
     const results = await Promise.all(
       records.map((r) =>
         prisma.studentAttendance.upsert({
@@ -65,9 +66,9 @@ export const studentTrackerService = {
       include: { student: { select: { id: true, name: true } } },
     });
     const total = records.length;
-    const present = records.filter((r: any) => r.status === "PRESENT").length;
-    const absent = records.filter((r: any) => r.status === "ABSENT").length;
-    const late = records.filter((r: any) => r.status === "LATE").length;
+    const present = records.filter((r: any) => r.status === AttendanceStatus.PRESENT).length;
+    const absent = records.filter((r: any) => r.status === AttendanceStatus.ABSENT).length;
+    const late = records.filter((r: any) => r.status === AttendanceStatus.LATE).length;
     return { total, present, absent, late, records };
   },
 };

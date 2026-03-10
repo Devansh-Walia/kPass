@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma.js";
+import { NeedStatus } from "@prisma/client";
 
 export const needsRegistryService = {
   listRequests: (status?: string) => {
@@ -24,10 +25,10 @@ export const needsRegistryService = {
 
   updateStatus: (id: string, data: { status: string; approvedById?: string }) => {
     const updateData: any = { status: data.status };
-    if (data.status === "APPROVED" && data.approvedById) {
+    if (data.status === NeedStatus.APPROVED && data.approvedById) {
       updateData.approvedById = data.approvedById;
     }
-    if (data.status === "FULFILLED") {
+    if (data.status === NeedStatus.FULFILLED) {
       updateData.fulfilledAt = new Date();
     }
     return prisma.needRequest.update({

@@ -3,6 +3,7 @@ import { authenticate } from "../middleware/auth.js";
 import { requireAppAccess } from "../middleware/appAccess.js";
 import { donorMgmtService } from "../services/donorMgmtService.js";
 import { createDonorSchema, updateDonorSchema, createDonationSchema } from "../validators/donorMgmt.js";
+import type { DonorType } from "@prisma/client";
 
 const router = Router();
 router.use(authenticate, requireAppAccess("donor-mgmt"));
@@ -11,7 +12,7 @@ router.use(authenticate, requireAppAccess("donor-mgmt"));
 router.get("/donors", async (req, res) => {
   const { type, search } = req.query;
   const donors = await donorMgmtService.listDonors({
-    type: type as "INDIVIDUAL" | "CORPORATE" | undefined,
+    type: type as DonorType | undefined,
     search: search as string | undefined,
   });
   res.json({ data: donors });

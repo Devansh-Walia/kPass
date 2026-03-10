@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma.js";
+import { StaffAttendanceStatus, LeaveStatus } from "@prisma/client";
 
 export const attendanceService = {
   listEmployees: () =>
@@ -17,7 +18,7 @@ export const attendanceService = {
 
   markAttendance: async (
     date: Date,
-    records: { employeeId: string; status: "PRESENT" | "ABSENT" | "LEAVE"; checkIn?: Date; checkOut?: Date }[],
+    records: { employeeId: string; status: StaffAttendanceStatus; checkIn?: Date; checkOut?: Date }[],
     markedById: string
   ) => {
     const upserts = records.map((r) =>
@@ -30,7 +31,7 @@ export const attendanceService = {
     return prisma.$transaction(upserts);
   },
 
-  listLeaves: (status?: "PENDING" | "APPROVED" | "REJECTED") => {
+  listLeaves: (status?: LeaveStatus) => {
     const where: any = {};
     if (status) where.status = status;
     return prisma.leaveRequest.findMany({
@@ -49,7 +50,7 @@ export const attendanceService = {
       include: { employee: { select: { id: true, name: true } } },
     }),
 
-  updateLeaveStatus: (id: string, status: "APPROVED" | "REJECTED", reviewedById: string) =>
+  updateLeaveStatus: (id: string, status: LeaveStatus, reviewedById: string) =>
     prisma.leaveRequest.update({
       where: { id },
       data: { status, reviewedById },
@@ -79,9 +80,9 @@ export const attendanceService = {
         employeeId: emp.id,
         employeeName: emp.name,
         department: emp.department,
-        present: records.filter((r: any) => r.status === "PRESENT").length,
-        absent: records.filter((r: any) => r.status === "ABSENT").length,
-        leave: records.filter((r: any) => r.status === "LEAVE").length,
+        present: records.filter((r: any) => r.status === StaffAttendanceStatus.PRESENT).length,
+        absent: records.filter((r: any) => r.status === StaffAttendanceStatus.ABSENT).length,
+        leave: records.filter((r: any) => r.status === StaffAttendanceStatus.LEAVE).length,
         totalMarked: records.length,
       };
     });

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authService } from "../services/authService.js";
 import { loginSchema } from "../validators/auth.js";
 import { verifyRefreshToken } from "../lib/jwt.js";
+import { env } from "../config/env.js";
 
 const router = Router();
 
@@ -13,7 +14,7 @@ router.post("/login", async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: env.refreshCookieMaxAgeMs,
     });
     res.json({ data: { accessToken: result.accessToken, user: result.user } });
   } catch {
@@ -32,7 +33,7 @@ router.post("/refresh", async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: env.refreshCookieMaxAgeMs,
     });
     res.json({ data: { accessToken: result.accessToken, user: result.user } });
   } catch {

@@ -1,12 +1,13 @@
 import { prisma } from "../lib/prisma.js";
+import { TransactionType } from "@prisma/client";
 
 export const financeService = {
   listCategories: () => prisma.financeCategory.findMany({ orderBy: { name: "asc" } }),
 
-  createCategory: (data: { name: string; type: "INCOME" | "EXPENSE" }) =>
+  createCategory: (data: { name: string; type: TransactionType }) =>
     prisma.financeCategory.create({ data }),
 
-  listTransactions: (filters?: { startDate?: Date; endDate?: Date; type?: "INCOME" | "EXPENSE"; categoryId?: string }) => {
+  listTransactions: (filters?: { startDate?: Date; endDate?: Date; type?: TransactionType; categoryId?: string }) => {
     const where: any = {};
     if (filters?.startDate || filters?.endDate) {
       where.date = {};
@@ -22,7 +23,7 @@ export const financeService = {
     });
   },
 
-  createTransaction: (data: { amount: number; type: "INCOME" | "EXPENSE"; categoryId: string; description?: string; date: Date }, userId: string) =>
+  createTransaction: (data: { amount: number; type: TransactionType; categoryId: string; description?: string; date: Date }, userId: string) =>
     prisma.transaction.create({
       data: { ...data, createdById: userId },
       include: { category: true },
@@ -33,8 +34,8 @@ export const financeService = {
       where: { date: { gte: startDate, lte: endDate } },
       include: { category: true },
     });
-    const income = transactions.filter(t => t.type === "INCOME").reduce((sum, t) => sum + t.amount, 0);
-    const expense = transactions.filter(t => t.type === "EXPENSE").reduce((sum, t) => sum + t.amount, 0);
+    const income = transactions.filter(t => t.type === TransactionType.INCOME).reduce((sum, t) => sum + t.amount, 0);
+    const expense = transactions.filter(t => t.type === TransactionType.EXPENSE).reduce((sum, t) => sum + t.amount, 0);
     return { income, expense, profit: income - expense, transactionCount: transactions.length };
   },
 };

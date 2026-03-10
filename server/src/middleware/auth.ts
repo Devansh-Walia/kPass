@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyAccessToken } from "../lib/jwt.js";
+import { Role } from "@prisma/client";
 
 export function authenticate(req: Request, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
@@ -17,7 +18,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  if (req.user?.role !== "ADMIN") {
+  if (req.user?.role !== Role.ADMIN) {
     return res.status(403).json({ error: "Admin access required" });
   }
   next();
