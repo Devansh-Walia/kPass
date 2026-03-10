@@ -1,6 +1,8 @@
 import { useEffect, useState, useMemo } from "react";
 import { donorMgmtApi } from "../../../api/donorMgmt";
 import { formatCurrency, DONOR_TYPE_COLORS } from "../../../constants";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { useAuth } from "../../../contexts/AuthContext";
 
 type Tab = "donors" | "donations";
 
@@ -115,13 +117,17 @@ function DonorsTab({
   donors: Donor[];
   onRefresh: () => Promise<void>;
 }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedData, setExpandedData] = useState<DonorDetail | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [editingDonorId, setEditingDonorId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", email: "", phone: "", type: "INDIVIDUAL" as Donor["type"], notes: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
 
   const filtered = useMemo(
     () =>
@@ -148,20 +154,42 @@ function DonorsTab({
     }
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const startEdit = (donor: Donor) => {
+    setEditingDonorId(donor.id);
+    setForm({
+      name: donor.name,
+      email: donor.email || "",
+      phone: donor.phone || "",
+      type: donor.type,
+      notes: donor.notes || "",
+    });
+    setShowForm(true);
+  };
+
+  const cancelForm = () => {
+    setShowForm(false);
+    setEditingDonorId(null);
+    setForm({ name: "", email: "", phone: "", type: "INDIVIDUAL", notes: "" });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) return;
     setSubmitting(true);
     try {
-      await donorMgmtApi.createDonor({
+      const payload = {
         name: form.name.trim(),
         email: form.email.trim() || undefined,
         phone: form.phone.trim() || undefined,
         type: form.type,
         notes: form.notes.trim() || undefined,
-      });
-      setForm({ name: "", email: "", phone: "", type: "INDIVIDUAL", notes: "" });
-      setShowForm(false);
+      };
+      if (editingDonorId) {
+        await donorMgmtApi.updateDonor(editingDonorId, payload);
+      } else {
+        await donorMgmtApi.createDonor(payload);
+      }
+      cancelForm();
       await onRefresh();
     } catch {
       /* silent */
@@ -170,8 +198,31 @@ function DonorsTab({
     }
   };
 
+  const handleDeleteDonor = async () => {
+    if (!confirmDelete) return;
+    try {
+      await donorMgmtApi.deleteDonor(confirmDelete.id);
+      setConfirmDelete(null);
+      if (expandedId === confirmDelete.id) {
+        setExpandedId(null);
+        setExpandedData(null);
+      }
+      await onRefresh();
+    } catch {
+      /* silent */
+    }
+  };
+
   return (
     <div className="space-y-4">
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Delete Donor"
+        message={`Are you sure you want to delete "${confirmDelete?.name}"? This will also delete all associated donations.`}
+        onConfirm={handleDeleteDonor}
+        onCancel={() => setConfirmDelete(null)}
+      />
+
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <input
@@ -192,7 +243,13 @@ function DonorsTab({
           </select>
         </div>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            if (showForm) {
+              cancelForm();
+            } else {
+              setShowForm(true);
+            }
+          }}
           className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
         >
           {showForm ? "Cancel" : "Add Donor"}
@@ -200,7 +257,10 @@ function DonorsTab({
       </div>
 
       {showForm && (
-        <form onSubmit={handleCreate} className="rounded border border-gray-200 bg-gray-50 p-4 space-y-3">
+        <form onSubmit={handleSubmit} className="rounded border border-gray-200 bg-gray-50 p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-gray-700">
+            {editingDonorId ? "Edit Donor" : "New Donor"}
+          </h3>
           <div className="grid grid-cols-2 gap-3">
             <input
               required
@@ -238,13 +298,24 @@ function DonorsTab({
             className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             rows={2}
           />
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {submitting ? "Saving..." : "Save Donor"}
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {submitting ? "Saving..." : editingDonorId ? "Update Donor" : "Save Donor"}
+            </button>
+            {editingDonorId && (
+              <button
+                type="button"
+                onClick={cancelForm}
+                className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
         </form>
       )}
 
@@ -252,7 +323,7 @@ function DonorsTab({
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {["Name", "Email", "Phone", "Type", "Donations"].map((h) => (
+              {["Name", "Email", "Phone", "Type", "Donations", ...(isAdmin ? ["Actions"] : [])].map((h) => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                   {h}
                 </th>
@@ -262,7 +333,7 @@ function DonorsTab({
           <tbody className="divide-y divide-gray-200 bg-white">
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-500">
+                <td colSpan={isAdmin ? 6 : 5} className="px-4 py-6 text-center text-sm text-gray-500">
                   No donors found.
                 </td>
               </tr>
@@ -274,6 +345,9 @@ function DonorsTab({
                 expanded={expandedId === d.id}
                 expandedData={expandedId === d.id ? expandedData : null}
                 onToggle={() => toggleExpand(d.id)}
+                isAdmin={isAdmin}
+                onEdit={() => startEdit(d)}
+                onDelete={() => setConfirmDelete({ id: d.id, name: d.name })}
               />
             ))}
           </tbody>
@@ -288,33 +362,56 @@ function DonorRow({
   expanded,
   expandedData,
   onToggle,
+  isAdmin,
+  onEdit,
+  onDelete,
 }: {
   donor: Donor;
   expanded: boolean;
   expandedData: DonorDetail | null;
   onToggle: () => void;
+  isAdmin: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   return (
     <>
       <tr
-        onClick={onToggle}
         className="cursor-pointer hover:bg-gray-50"
       >
-        <td className="px-4 py-3 text-sm font-medium text-gray-900">{donor.name}</td>
-        <td className="px-4 py-3 text-sm text-gray-600">{donor.email || "-"}</td>
-        <td className="px-4 py-3 text-sm text-gray-600">{donor.phone || "-"}</td>
-        <td className="px-4 py-3 text-sm">
+        <td className="px-4 py-3 text-sm font-medium text-gray-900" onClick={onToggle}>{donor.name}</td>
+        <td className="px-4 py-3 text-sm text-gray-600" onClick={onToggle}>{donor.email || "-"}</td>
+        <td className="px-4 py-3 text-sm text-gray-600" onClick={onToggle}>{donor.phone || "-"}</td>
+        <td className="px-4 py-3 text-sm" onClick={onToggle}>
           <span
             className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${DONOR_TYPE_COLORS[donor.type] ?? "bg-gray-100 text-gray-800"}`}
           >
             {donor.type}
           </span>
         </td>
-        <td className="px-4 py-3 text-sm text-gray-600">{donor._count?.donations ?? 0}</td>
+        <td className="px-4 py-3 text-sm text-gray-600" onClick={onToggle}>{donor._count?.donations ?? 0}</td>
+        {isAdmin && (
+          <td className="px-4 py-3 text-sm">
+            <div className="flex gap-2">
+              <button
+                onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                className="rounded px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+              >
+                Edit
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+              >
+                Delete
+              </button>
+            </div>
+          </td>
+        )}
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={5} className="bg-gray-50 px-6 py-4">
+          <td colSpan={isAdmin ? 6 : 5} className="bg-gray-50 px-6 py-4">
             {!expandedData ? (
               <p className="text-sm text-gray-500">Loading details...</p>
             ) : (
@@ -349,7 +446,7 @@ function DonorRow({
                         <li key={dn.id} className="text-sm text-gray-700">
                           <span className="font-medium">{formatCurrency(dn.amount)}</span>{" "}
                           on {new Date(dn.date).toLocaleDateString()}
-                          {dn.purpose && <span> — {dn.purpose}</span>}
+                          {dn.purpose && <span> -- {dn.purpose}</span>}
                           {dn.receiptNo && (
                             <span className="ml-2 rounded bg-gray-200 px-1.5 py-0.5 text-xs">
                               #{dn.receiptNo}
@@ -382,10 +479,13 @@ function DonationsTab({
   donors: Donor[];
   onRefresh: () => Promise<void>;
 }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ donorId: "", amount: "", date: new Date().toISOString().split("T")[0], purpose: "", receiptNo: "" });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; label: string } | null>(null);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -413,8 +513,27 @@ function DonationsTab({
     }
   };
 
+  const handleDeleteDonation = async () => {
+    if (!confirmDelete) return;
+    try {
+      await donorMgmtApi.deleteDonation(confirmDelete.id);
+      setConfirmDelete(null);
+      await onRefresh();
+    } catch {
+      /* silent */
+    }
+  };
+
   return (
     <div className="space-y-4">
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Delete Donation"
+        message={`Are you sure you want to delete this donation (${confirmDelete?.label})?`}
+        onConfirm={handleDeleteDonation}
+        onCancel={() => setConfirmDelete(null)}
+      />
+
       <div className="flex justify-end">
         <button
           onClick={() => setShowForm(!showForm)}
@@ -485,7 +604,7 @@ function DonationsTab({
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {["Donor", "Amount", "Date", "Purpose", "Receipt No.", "Created By"].map((h) => (
+              {["Donor", "Amount", "Date", "Purpose", "Receipt No.", "Created By", ...(isAdmin ? ["Actions"] : [])].map((h) => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                   {h}
                 </th>
@@ -495,7 +614,7 @@ function DonationsTab({
           <tbody className="divide-y divide-gray-200 bg-white">
             {donations.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-500">
+                <td colSpan={isAdmin ? 7 : 6} className="px-4 py-6 text-center text-sm text-gray-500">
                   No donations recorded yet.
                 </td>
               </tr>
@@ -514,6 +633,16 @@ function DonationsTab({
                     ? `${dn.createdBy.firstName} ${dn.createdBy.lastName}`
                     : "-"}
                 </td>
+                {isAdmin && (
+                  <td className="px-4 py-3 text-sm">
+                    <button
+                      onClick={() => setConfirmDelete({ id: dn.id, label: formatCurrency(dn.amount) })}
+                      className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

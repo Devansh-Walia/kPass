@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticate } from "../middleware/auth.js";
+import { authenticate, requireAdmin } from "../middleware/auth.js";
 import { requireAppAccess } from "../middleware/appAccess.js";
 import { donorMgmtService } from "../services/donorMgmtService.js";
 import { createDonorSchema, updateDonorSchema, createDonationSchema } from "../validators/donorMgmt.js";
@@ -36,6 +36,11 @@ router.patch("/donors/:id", async (req, res) => {
   res.json({ data: donor });
 });
 
+router.delete("/donors/:id", requireAdmin, async (req, res) => {
+  await donorMgmtService.deleteDonor(req.params.id as string);
+  res.json({ data: { success: true } });
+});
+
 // Donations
 router.get("/donations", async (_req, res) => {
   const donations = await donorMgmtService.listDonations();
@@ -46,6 +51,11 @@ router.post("/donations", async (req, res) => {
   const body = createDonationSchema.parse(req.body);
   const donation = await donorMgmtService.createDonation(body, req.user!.id);
   res.status(201).json({ data: donation });
+});
+
+router.delete("/donations/:id", requireAdmin, async (req, res) => {
+  await donorMgmtService.deleteDonation(req.params.id as string);
+  res.json({ data: { success: true } });
 });
 
 export default router;

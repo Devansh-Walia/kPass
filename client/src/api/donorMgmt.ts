@@ -13,4 +13,8 @@ export const donorMgmtApi = {
     apiClient.get("/apps/donor-mgmt/donations").then((res) => res.data.data),
   createDonation: (data: any) =>
     apiClient.post("/apps/donor-mgmt/donations", data).then((res) => res.data.data),
+  deleteDonor: (id: string) =>
+    apiClient.delete(`/apps/donor-mgmt/donors/${id}`).then((res) => res.data.data),
+  deleteDonation: (id: string) =>
+    apiClient.delete(`/apps/donor-mgmt/donations/${id}`).then((res) => res.data.data),
 };

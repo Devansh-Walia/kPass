@@ -46,4 +46,10 @@ export const donorMgmtService = {
       data: { ...data, createdById: userId },
       include: { donor: { select: { name: true } } },
     }),
+
+  deleteDonor: (id: string) =>
+    prisma.donor.delete({ where: { id } }),
+
+  deleteDonation: (id: string) =>
+    prisma.donation.delete({ where: { id } }),
 };
