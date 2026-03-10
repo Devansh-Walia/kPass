@@ -65,6 +65,8 @@ model User {
   // Donors
   createdDonors      Donor[]
   createdDonations   Donation[]
+  // Departments
+  departments        UserDepartment[]
 }
 
 enum AppType {
@@ -95,6 +97,33 @@ model App {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   users       UserApp[]
+  departments DepartmentApp[]
+}
+
+model Department {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  slug        String           @unique
+  users       UserDepartment[]
+  defaultApps DepartmentApp[]
+  createdAt   DateTime         @default(now())
+}
+
+model DepartmentApp {
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  appId        String
+  app          App        @relation(fields: [appId], references: [id], onDelete: Cascade)
+  @@id([departmentId, appId])
+}
+
+model UserDepartment {
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  assignedAt   DateTime   @default(now())
+  @@id([userId, departmentId])
 }
 
 model UserApp {
@@ -105,6 +134,7 @@ model UserApp {
   assignedAt   DateTime @default(now())
   assignedById String
   assignedBy   User     @relation("AssignedBy", fields: [assignedById], references: [id])
+  source       String   @default("manual")
 
   @@id([userId, appId])
 }
