@@ -61,6 +61,38 @@ async function main() {
     });
   }
 
+  // Create departments with default app mappings
+  const departments = [
+    { name: "COE", slug: "coe", appSlugs: ["task-board"] },
+    { name: "HR", slug: "hr", appSlugs: ["people-directory", "attendance"] },
+    { name: "Pathshala", slug: "pathshala", appSlugs: ["student-tracker"] },
+    { name: "CDK", slug: "cdk", appSlugs: ["needs-registry"] },
+    { name: "Marketing", slug: "marketing", appSlugs: ["ideation", "content-calendar"] },
+    { name: "PR", slug: "pr", appSlugs: ["event-manager"] },
+    { name: "Art & Craft", slug: "art-craft", appSlugs: ["workshop-tracker"] },
+    { name: "Sales", slug: "sales", appSlugs: ["donor-mgmt"] },
+    { name: "Finance", slug: "finance-dept", appSlugs: ["finance"] },
+  ];
+
+  for (const dept of departments) {
+    const department = await prisma.department.upsert({
+      where: { slug: dept.slug },
+      update: {},
+      create: { name: dept.name, slug: dept.slug },
+    });
+
+    for (const appSlug of dept.appSlugs) {
+      const app = await prisma.app.findUnique({ where: { slug: appSlug } });
+      if (app) {
+        await prisma.departmentApp.upsert({
+          where: { departmentId_appId: { departmentId: department.id, appId: app.id } },
+          update: {},
+          create: { departmentId: department.id, appId: app.id },
+        });
+      }
+    }
+  }
+
   console.log("Seed complete");
 }
 
