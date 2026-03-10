@@ -29,6 +29,17 @@ export const financeService = {
       include: { category: true },
     }),
 
+  updateTransaction: (id: string, data: Partial<{ amount: number; type: TransactionType; categoryId: string; description: string; date: Date }>) =>
+    prisma.transaction.update({
+      where: { id },
+      data,
+      include: { category: true },
+    }),
+
+  deleteTransaction: (id: string) => prisma.transaction.delete({ where: { id } }),
+
+  deleteCategory: (id: string) => prisma.financeCategory.delete({ where: { id } }),
+
   getReport: async (startDate: Date, endDate: Date) => {
     const transactions = await prisma.transaction.findMany({
       where: { date: { gte: startDate, lte: endDate } },

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { financeApi } from "../../../api/finance";
 import { formatCurrency, TRANSACTION_TYPE_COLORS } from "../../../constants";
+import { useAuth } from "../../../contexts/AuthContext";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 
 interface Transaction {
   id: string;
@@ -9,6 +11,7 @@ interface Transaction {
   description: string;
   date: string;
   category: { name: string };
+  categoryId: string;
   createdBy: { firstName: string; lastName: string };
 }
 
@@ -38,6 +41,9 @@ function getMonthRange(): { start: string; end: string } {
 }
 
 export default function FinanceDashboard() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
+
   const [tab, setTab] = useState<Tab>("overview");
 
   // Overview state
@@ -52,8 +58,9 @@ export default function FinanceDashboard() {
   const [filterStart, setFilterStart] = useState("");
   const [filterEnd, setFilterEnd] = useState("");
 
-  // Add transaction form
+  // Add/Edit transaction form
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formAmount, setFormAmount] = useState("");
   const [formType, setFormType] = useState("EXPENSE");
   const [formCategory, setFormCategory] = useState("");
@@ -61,6 +68,15 @@ export default function FinanceDashboard() {
   const [formDate, setFormDate] = useState(new Date().toISOString().split("T")[0]);
   const [formError, setFormError] = useState("");
   const [formSubmitting, setFormSubmitting] = useState(false);
+
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "transaction" | "category"; id: string; label: string } | null>(null);
+
+  // Category form state (overview tab)
+  const [catName, setCatName] = useState("");
+  const [catType, setCatType] = useState("EXPENSE");
+  const [catError, setCatError] = useState("");
+  const [catSubmitting, setCatSubmitting] = useState(false);
 
   // Reports state
   const [reportStart, setReportStart] = useState("");
@@ -71,14 +87,8 @@ export default function FinanceDashboard() {
   // Load overview on mount
   useEffect(() => {
     loadOverview();
+    loadCategories();
   }, []);
-
-  // Load categories when needed
-  useEffect(() => {
-    if (tab === "transactions" && categories.length === 0) {
-      financeApi.getCategories().then(setCategories).catch(() => {});
-    }
-  }, [tab, categories.length]);
 
   // Load transactions when tab changes or filters change
   useEffect(() => {
@@ -86,6 +96,10 @@ export default function FinanceDashboard() {
       loadTransactions();
     }
   }, [tab, filterType, filterStart, filterEnd]);
+
+  function loadCategories() {
+    financeApi.getCategories().then(setCategories).catch(() => {});
+  }
 
   async function loadOverview() {
     setOverviewLoading(true);
@@ -116,7 +130,29 @@ export default function FinanceDashboard() {
     }
   }
 
-  async function handleAddTransaction(e: React.FormEvent) {
+  function resetForm() {
+    setFormAmount("");
+    setFormType("EXPENSE");
+    setFormCategory("");
+    setFormDescription("");
+    setFormDate(new Date().toISOString().split("T")[0]);
+    setFormError("");
+    setEditingId(null);
+    setShowForm(false);
+  }
+
+  function startEdit(tx: Transaction) {
+    setEditingId(tx.id);
+    setFormAmount(String(tx.amount));
+    setFormType(tx.type);
+    setFormCategory(tx.categoryId);
+    setFormDescription(tx.description || "");
+    setFormDate(new Date(tx.date).toISOString().split("T")[0]);
+    setFormError("");
+    setShowForm(true);
+  }
+
+  async function handleSubmitTransaction(e: React.FormEvent) {
     e.preventDefault();
     setFormError("");
     if (!formAmount || !formCategory) {
@@ -125,24 +161,63 @@ export default function FinanceDashboard() {
     }
     setFormSubmitting(true);
     try {
-      await financeApi.createTransaction({
+      const payload = {
         amount: parseFloat(formAmount),
         type: formType,
         categoryId: formCategory,
         description: formDescription,
         date: formDate,
-      });
-      setFormAmount("");
-      setFormDescription("");
-      setFormCategory("");
-      setFormDate(new Date().toISOString().split("T")[0]);
-      setShowForm(false);
+      };
+      if (editingId) {
+        await financeApi.updateTransaction(editingId, payload);
+      } else {
+        await financeApi.createTransaction(payload);
+      }
+      resetForm();
       loadTransactions();
       loadOverview();
     } catch (err: any) {
-      setFormError(err.response?.data?.error || "Failed to create transaction.");
+      setFormError(err.response?.data?.error || (editingId ? "Failed to update transaction." : "Failed to create transaction."));
     } finally {
       setFormSubmitting(false);
+    }
+  }
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget) return;
+    try {
+      if (deleteTarget.type === "transaction") {
+        await financeApi.deleteTransaction(deleteTarget.id);
+        loadTransactions();
+        loadOverview();
+      } else {
+        await financeApi.deleteCategory(deleteTarget.id);
+        loadCategories();
+      }
+    } catch {
+      // silently handle
+    } finally {
+      setDeleteTarget(null);
+    }
+  }
+
+  async function handleAddCategory(e: React.FormEvent) {
+    e.preventDefault();
+    setCatError("");
+    if (!catName.trim()) {
+      setCatError("Category name is required.");
+      return;
+    }
+    setCatSubmitting(true);
+    try {
+      await financeApi.createCategory({ name: catName.trim(), type: catType });
+      setCatName("");
+      setCatType("EXPENSE");
+      loadCategories();
+    } catch (err: any) {
+      setCatError(err.response?.data?.error || "Failed to create category.");
+    } finally {
+      setCatSubmitting(false);
     }
   }
 
@@ -168,6 +243,15 @@ export default function FinanceDashboard() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Finance Dashboard</h2>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title={deleteTarget?.type === "transaction" ? "Delete Transaction" : "Delete Category"}
+        message={`Are you sure you want to delete this ${deleteTarget?.type ?? "item"}${deleteTarget?.label ? ` "${deleteTarget.label}"` : ""}? This action cannot be undone.`}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
 
       {/* Tab Navigation */}
       <div className="flex space-x-1 border-b border-gray-200 mb-6">
@@ -231,6 +315,86 @@ export default function FinanceDashboard() {
           ) : (
             <p className="text-gray-500">No data available for this month.</p>
           )}
+
+          {/* Categories Section */}
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Categories</h3>
+
+            {/* Create Category Form */}
+            <form onSubmit={handleAddCategory} className="flex flex-wrap items-end gap-3 mb-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={catName}
+                  onChange={(e) => setCatName(e.target.value)}
+                  placeholder="Category name"
+                  className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
+                <select
+                  value={catType}
+                  onChange={(e) => setCatType(e.target.value)}
+                  className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="INCOME">Income</option>
+                  <option value="EXPENSE">Expense</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                disabled={catSubmitting}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              >
+                {catSubmitting ? "Adding..." : "Add Category"}
+              </button>
+              {catError && <p className="text-red-600 text-sm">{catError}</p>}
+            </form>
+
+            {/* Categories List */}
+            {categories.length === 0 ? (
+              <p className="text-gray-500 text-sm">No categories yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left border border-gray-200 rounded-lg">
+                  <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
+                    <tr>
+                      <th className="px-4 py-3">Name</th>
+                      <th className="px-4 py-3">Type</th>
+                      {isAdmin && <th className="px-4 py-3 text-right">Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {categories.map((cat) => (
+                      <tr key={cat.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">{cat.name}</td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${TRANSACTION_TYPE_COLORS[cat.type] ?? "bg-gray-100 text-gray-700"}`}
+                          >
+                            {cat.type}
+                          </span>
+                        </td>
+                        {isAdmin && (
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => setDeleteTarget({ type: "category", id: cat.id, label: cat.name })}
+                              className="text-red-600 hover:text-red-800 text-xs font-medium"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -270,19 +434,31 @@ export default function FinanceDashboard() {
               />
             </div>
             <button
-              onClick={() => setShowForm((v) => !v)}
+              onClick={() => {
+                if (showForm && editingId) {
+                  resetForm();
+                } else {
+                  setShowForm((v) => !v);
+                  if (editingId) resetForm();
+                }
+              }}
               className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
             >
-              {showForm ? "Cancel" : "Add Transaction"}
+              {showForm && !editingId ? "Cancel" : "Add Transaction"}
             </button>
           </div>
 
-          {/* Add Transaction Form */}
+          {/* Add/Edit Transaction Form */}
           {showForm && (
             <form
-              onSubmit={handleAddTransaction}
+              onSubmit={handleSubmitTransaction}
               className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
             >
+              {editingId && (
+                <p className="col-span-full text-sm font-medium text-indigo-600">
+                  Editing transaction
+                </p>
+              )}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Amount</label>
                 <input
@@ -345,14 +521,23 @@ export default function FinanceDashboard() {
                   required
                 />
               </div>
-              <div className="flex items-end">
+              <div className="flex items-end gap-2">
                 <button
                   type="submit"
                   disabled={formSubmitting}
                   className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
                 >
-                  {formSubmitting ? "Saving..." : "Save Transaction"}
+                  {formSubmitting ? "Saving..." : editingId ? "Update Transaction" : "Save Transaction"}
                 </button>
+                {editingId && (
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="text-gray-600 border border-gray-300 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel edit
+                  </button>
+                )}
               </div>
               {formError && (
                 <p className="text-red-600 text-sm col-span-full">{formError}</p>
@@ -376,6 +561,7 @@ export default function FinanceDashboard() {
                     <th className="px-4 py-3">Description</th>
                     <th className="px-4 py-3 text-right">Amount</th>
                     <th className="px-4 py-3">Created By</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -400,6 +586,24 @@ export default function FinanceDashboard() {
                         {tx.createdBy
                           ? `${tx.createdBy.firstName} ${tx.createdBy.lastName}`
                           : "-"}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => startEdit(tx)}
+                            className="text-indigo-600 hover:text-indigo-800 text-xs font-medium"
+                          >
+                            Edit
+                          </button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => setDeleteTarget({ type: "transaction", id: tx.id, label: tx.description || tx.category?.name || "transaction" })}
+                              className="text-red-600 hover:text-red-800 text-xs font-medium"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

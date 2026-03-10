@@ -36,6 +36,22 @@ router.post("/transactions", async (req, res) => {
   res.status(201).json({ data: transaction });
 });
 
+router.patch("/transactions/:id", async (req, res) => {
+  const body = createTransactionSchema.partial().parse(req.body);
+  const transaction = await financeService.updateTransaction(req.params.id, body);
+  res.json({ data: transaction });
+});
+
+router.delete("/transactions/:id", async (_req, res) => {
+  await financeService.deleteTransaction(_req.params.id);
+  res.json({ data: { message: "Transaction deleted" } });
+});
+
+router.delete("/categories/:id", async (_req, res) => {
+  await financeService.deleteCategory(_req.params.id);
+  res.json({ data: { message: "Category deleted" } });
+});
+
 router.get("/reports", async (req, res) => {
   const { startDate, endDate } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ error: "startDate and endDate required" });
