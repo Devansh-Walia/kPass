@@ -3,6 +3,9 @@ import { authenticate } from "../middleware/auth.js";
 import { requireAppAccess } from "../middleware/appAccess.js";
 import { financeService } from "../services/financeService.js";
 import { createCategorySchema, createTransactionSchema } from "../validators/finance.js";
+import { bulkImportRequestSchema } from "../validators/bulkImport.js";
+import { processBulkImport } from "../services/bulkImportService.js";
+import { prisma } from "../lib/prisma.js";
 import type { TransactionType } from "@prisma/client";
 
 const router = Router();
@@ -57,6 +60,72 @@ router.get("/reports", async (req, res) => {
   if (!startDate || !endDate) return res.status(400).json({ error: "startDate and endDate required" });
   const report = await financeService.getReport(new Date(startDate as string), new Date(endDate as string));
   res.json({ data: report });
+});
+
+// Bulk import
+router.post("/bulk-import", async (req, res) => {
+  const { entity, rows } = bulkImportRequestSchema.parse(req.body);
+
+  if (entity === "category") {
+    const result = await processBulkImport({
+      rows,
+      schema: createCategorySchema,
+      createFn: (data) => financeService.createCategory(data),
+      userId: req.user!.id,
+    });
+    return res.json({ data: result });
+  }
+
+  if (entity === "transaction") {
+    const result = await processBulkImport({
+      rows,
+      schema: createTransactionSchema,
+      createFn: (data, userId) => financeService.createTransaction(data, userId),
+      userId: req.user!.id,
+      resolveFn: async (row) => {
+        // Resolve categoryName → categoryId
+        if (row.categoryName && !row.categoryId) {
+          const cat = await prisma.financeCategory.findFirst({
+            where: { name: { equals: row.categoryName as string, mode: "insensitive" } },
+          });
+          if (!cat) throw new Error(`Category "${row.categoryName}" not found`);
+          return { ...row, categoryId: cat.id, categoryName: undefined };
+        }
+        return row;
+      },
+    });
+    return res.json({ data: result });
+  }
+
+  res.status(400).json({ error: `Unknown entity: ${entity}. Supported: category, transaction` });
+});
+
+router.get("/import-template", (req, res) => {
+  const entity = req.query.entity as string;
+  const templates: Record<string, any> = {
+    category: {
+      fields: [
+        { key: "name", label: "Name", type: "string", required: true },
+        { key: "type", label: "Type", type: "enum", required: true, enumValues: ["INCOME", "EXPENSE"] },
+      ],
+      example: { name: "Donations", type: "INCOME" },
+    },
+    transaction: {
+      fields: [
+        { key: "amount", label: "Amount", type: "number", required: true },
+        { key: "type", label: "Type", type: "enum", required: true, enumValues: ["INCOME", "EXPENSE"] },
+        { key: "categoryId", label: "Category ID", type: "uuid", required: false, description: "Either categoryId or categoryName is required" },
+        { key: "categoryName", label: "Category Name", type: "string", required: false, description: "Will resolve to categoryId" },
+        { key: "description", label: "Description", type: "string", required: false },
+        { key: "date", label: "Date", type: "date", required: true, description: "YYYY-MM-DD format" },
+      ],
+      example: { amount: 5000, type: "INCOME", categoryName: "Donations", description: "Monthly donation", date: "2025-03-15" },
+    },
+  };
+  if (!entity || !templates[entity]) {
+    return res.status(400).json({ error: `Unknown entity. Supported: ${Object.keys(templates).join(", ")}` });
+  }
+  res.json({ data: templates[entity] });
 });
 
 export default router;

@@ -3,6 +3,8 @@ import { authenticate } from "../middleware/auth.js";
 import { requireAppAccess } from "../middleware/appAccess.js";
 import { eventManagerService } from "../services/eventManagerService.js";
 import { createEventSchema, updateEventSchema, addVolunteerSchema } from "../validators/eventManager.js";
+import { bulkImportRequestSchema } from "../validators/bulkImport.js";
+import { processBulkImport } from "../services/bulkImportService.js";
 
 const router = Router();
 router.use(authenticate, requireAppAccess("event-manager"));
@@ -44,6 +46,43 @@ router.delete("/events/:id/volunteers/:userId", async (req, res) => {
 router.delete("/events/:id", async (req, res) => {
   await eventManagerService.deleteEvent(req.params.id as string);
   res.json({ data: { success: true } });
+});
+
+// Bulk import
+router.post("/bulk-import", async (req, res) => {
+  const { entity, rows } = bulkImportRequestSchema.parse(req.body);
+
+  if (entity === "event") {
+    const result = await processBulkImport({
+      rows,
+      schema: createEventSchema,
+      createFn: (data, userId) => eventManagerService.createEvent(data, userId),
+      userId: req.user!.id,
+    });
+    return res.json({ data: result });
+  }
+
+  res.status(400).json({ error: `Unknown entity: ${entity}. Supported: event` });
+});
+
+router.get("/import-template", (req, res) => {
+  const entity = req.query.entity as string;
+  const templates: Record<string, any> = {
+    event: {
+      fields: [
+        { key: "title", label: "Title", type: "string", required: true },
+        { key: "description", label: "Description", type: "string", required: false },
+        { key: "date", label: "Date", type: "date", required: true, description: "YYYY-MM-DD format" },
+        { key: "location", label: "Location", type: "string", required: false },
+        { key: "budget", label: "Budget", type: "number", required: false },
+      ],
+      example: { title: "Annual Day Celebration", description: "Cultural performances by students", date: "2025-12-15", location: "Community Hall", budget: 25000 },
+    },
+  };
+  if (!entity || !templates[entity]) {
+    return res.status(400).json({ error: `Unknown entity. Supported: ${Object.keys(templates).join(", ")}` });
+  }
+  res.json({ data: templates[entity] });
 });
 
 export default router;

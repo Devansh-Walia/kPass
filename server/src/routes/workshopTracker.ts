@@ -3,6 +3,8 @@ import { authenticate } from "../middleware/auth.js";
 import { requireAppAccess } from "../middleware/appAccess.js";
 import { workshopTrackerService } from "../services/workshopTrackerService.js";
 import { createWorkshopSchema, updateWorkshopSchema, addParticipantSchema } from "../validators/workshopTracker.js";
+import { bulkImportRequestSchema } from "../validators/bulkImport.js";
+import { processBulkImport } from "../services/bulkImportService.js";
 
 const router = Router();
 router.use(authenticate, requireAppAccess("workshop-tracker"));
@@ -49,6 +51,44 @@ router.delete("/workshops/:id", async (req, res) => {
 router.delete("/participants/:id", async (req, res) => {
   await workshopTrackerService.removeParticipant(req.params.id as string);
   res.json({ data: { success: true } });
+});
+
+// Bulk import
+router.post("/bulk-import", async (req, res) => {
+  const { entity, rows } = bulkImportRequestSchema.parse(req.body);
+
+  if (entity === "workshop") {
+    const result = await processBulkImport({
+      rows,
+      schema: createWorkshopSchema,
+      createFn: (data, userId) => workshopTrackerService.createWorkshop(data, userId),
+      userId: req.user!.id,
+    });
+    return res.json({ data: result });
+  }
+
+  res.status(400).json({ error: `Unknown entity: ${entity}. Supported: workshop` });
+});
+
+router.get("/import-template", (req, res) => {
+  const entity = req.query.entity as string;
+  const templates: Record<string, any> = {
+    workshop: {
+      fields: [
+        { key: "title", label: "Title", type: "string", required: true },
+        { key: "description", label: "Description", type: "string", required: false },
+        { key: "date", label: "Date", type: "date", required: true, description: "YYYY-MM-DD format" },
+        { key: "instructor", label: "Instructor", type: "string", required: true },
+        { key: "materialsNeeded", label: "Materials Needed", type: "string", required: false },
+        { key: "maxParticipants", label: "Max Participants", type: "number", required: false },
+      ],
+      example: { title: "Art & Craft Workshop", description: "Paper craft basics", date: "2025-04-10", instructor: "Meera Patel", materialsNeeded: "Coloured paper, scissors, glue", maxParticipants: 30 },
+    },
+  };
+  if (!entity || !templates[entity]) {
+    return res.status(400).json({ error: `Unknown entity. Supported: ${Object.keys(templates).join(", ")}` });
+  }
+  res.json({ data: templates[entity] });
 });
 
 export default router;

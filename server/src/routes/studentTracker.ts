@@ -3,6 +3,8 @@ import { authenticate } from "../middleware/auth.js";
 import { requireAppAccess } from "../middleware/appAccess.js";
 import { studentTrackerService } from "../services/studentTrackerService.js";
 import { createStudentSchema, updateStudentSchema, markAttendanceSchema } from "../validators/studentTracker.js";
+import { bulkImportRequestSchema } from "../validators/bulkImport.js";
+import { processBulkImport } from "../services/bulkImportService.js";
 
 const router = Router();
 router.use(authenticate, requireAppAccess("student-tracker"));
@@ -68,6 +70,43 @@ router.get("/attendance", async (req, res) => {
     date: date ? new Date(date as string) : undefined,
   });
   res.json({ data: attendance });
+});
+
+// Bulk import
+router.post("/bulk-import", async (req, res) => {
+  const { entity, rows } = bulkImportRequestSchema.parse(req.body);
+
+  if (entity === "student") {
+    const result = await processBulkImport({
+      rows,
+      schema: createStudentSchema,
+      createFn: (data, userId) => studentTrackerService.createStudent(data, userId),
+      userId: req.user!.id,
+    });
+    return res.json({ data: result });
+  }
+
+  res.status(400).json({ error: `Unknown entity: ${entity}. Supported: student` });
+});
+
+router.get("/import-template", (req, res) => {
+  const entity = req.query.entity as string;
+  const templates: Record<string, any> = {
+    student: {
+      fields: [
+        { key: "name", label: "Name", type: "string", required: true },
+        { key: "age", label: "Age", type: "number", required: true },
+        { key: "guardianName", label: "Guardian Name", type: "string", required: true },
+        { key: "guardianPhone", label: "Guardian Phone", type: "string", required: false },
+        { key: "batch", label: "Batch", type: "string", required: true },
+      ],
+      example: { name: "Ankit Kumar", age: 12, guardianName: "Rajesh Kumar", guardianPhone: "9876543210", batch: "2025-A" },
+    },
+  };
+  if (!entity || !templates[entity]) {
+    return res.status(400).json({ error: `Unknown entity. Supported: ${Object.keys(templates).join(", ")}` });
+  }
+  res.json({ data: templates[entity] });
 });
 
 export default router;

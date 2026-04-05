@@ -3,6 +3,9 @@ import { authenticate, requireAdmin } from "../middleware/auth.js";
 import { requireAppAccess } from "../middleware/appAccess.js";
 import { crmService } from "../services/crmService.js";
 import { createContactSchema, updateContactSchema, createDealSchema, updateDealSchema, createActivitySchema } from "../validators/crm.js";
+import { bulkImportRequestSchema } from "../validators/bulkImport.js";
+import { processBulkImport } from "../services/bulkImportService.js";
+import { prisma } from "../lib/prisma.js";
 
 const router = Router();
 router.use(authenticate, requireAppAccess("crm"));
@@ -74,6 +77,110 @@ router.post("/activities", async (req, res) => {
 router.delete("/activities/:id", requireAdmin, async (req, res) => {
   await crmService.deleteActivity(req.params.id as string);
   res.json({ data: { message: "Activity deleted" } });
+});
+
+// Bulk import
+router.post("/bulk-import", async (req, res) => {
+  const { entity, rows } = bulkImportRequestSchema.parse(req.body);
+
+  if (entity === "contact") {
+    const result = await processBulkImport({
+      rows,
+      schema: createContactSchema,
+      createFn: (data, userId) => crmService.createContact(data, userId),
+      userId: req.user!.id,
+      resolveFn: async (row) => {
+        // Parse tags from comma-separated string
+        if (typeof row.tags === "string") {
+          return { ...row, tags: (row.tags as string).split(",").map(t => t.trim()).filter(Boolean) };
+        }
+        return row;
+      },
+    });
+    return res.json({ data: result });
+  }
+
+  if (entity === "deal") {
+    const result = await processBulkImport({
+      rows,
+      schema: createDealSchema,
+      createFn: (data, userId) => crmService.createDeal(data, userId),
+      userId: req.user!.id,
+      resolveFn: async (row) => {
+        if (row.contactName && !row.contactId) {
+          const contact = await prisma.contact.findFirst({
+            where: { name: { equals: row.contactName as string, mode: "insensitive" } },
+          });
+          if (!contact) throw new Error(`Contact "${row.contactName}" not found`);
+          return { ...row, contactId: contact.id, contactName: undefined };
+        }
+        return row;
+      },
+    });
+    return res.json({ data: result });
+  }
+
+  if (entity === "activity") {
+    const result = await processBulkImport({
+      rows,
+      schema: createActivitySchema,
+      createFn: (data, userId) => crmService.createActivity(data, userId),
+      userId: req.user!.id,
+      resolveFn: async (row) => {
+        if (row.contactName && !row.contactId) {
+          const contact = await prisma.contact.findFirst({
+            where: { name: { equals: row.contactName as string, mode: "insensitive" } },
+          });
+          if (!contact) throw new Error(`Contact "${row.contactName}" not found`);
+          return { ...row, contactId: contact.id, contactName: undefined };
+        }
+        return row;
+      },
+    });
+    return res.json({ data: result });
+  }
+
+  res.status(400).json({ error: `Unknown entity: ${entity}. Supported: contact, deal, activity` });
+});
+
+router.get("/import-template", (req, res) => {
+  const entity = req.query.entity as string;
+  const templates: Record<string, any> = {
+    contact: {
+      fields: [
+        { key: "name", label: "Name", type: "string", required: true },
+        { key: "email", label: "Email", type: "email", required: false },
+        { key: "phone", label: "Phone", type: "string", required: false },
+        { key: "company", label: "Company", type: "string", required: false },
+        { key: "tags", label: "Tags", type: "string", required: false, description: "Comma-separated list" },
+        { key: "notes", label: "Notes", type: "string", required: false },
+      ],
+      example: { name: "Rahul Sharma", email: "rahul@example.com", phone: "9876543210", company: "TechCorp", tags: "sponsor,corporate", notes: "Met at gala" },
+    },
+    deal: {
+      fields: [
+        { key: "title", label: "Title", type: "string", required: true },
+        { key: "value", label: "Value", type: "number", required: true },
+        { key: "stage", label: "Stage", type: "enum", required: false, enumValues: ["LEAD", "CONTACTED", "PROPOSAL", "CLOSED"], description: "Defaults to LEAD" },
+        { key: "contactId", label: "Contact ID", type: "uuid", required: false, description: "Either contactId or contactName" },
+        { key: "contactName", label: "Contact Name", type: "string", required: false, description: "Will resolve to contactId" },
+      ],
+      example: { title: "Annual Sponsorship", value: 50000, stage: "LEAD", contactName: "Rahul Sharma" },
+    },
+    activity: {
+      fields: [
+        { key: "contactId", label: "Contact ID", type: "uuid", required: false, description: "Either contactId or contactName" },
+        { key: "contactName", label: "Contact Name", type: "string", required: false, description: "Will resolve to contactId" },
+        { key: "type", label: "Type", type: "enum", required: true, enumValues: ["CALL", "EMAIL", "NOTE", "MEETING"] },
+        { key: "content", label: "Content", type: "string", required: true },
+      ],
+      example: { contactName: "Rahul Sharma", type: "CALL", content: "Discussed sponsorship plans" },
+    },
+  };
+  if (!entity || !templates[entity]) {
+    return res.status(400).json({ error: `Unknown entity. Supported: ${Object.keys(templates).join(", ")}` });
+  }
+  res.json({ data: templates[entity] });
 });
 
 export default router;
