@@ -114,6 +114,13 @@ export default function DonorMgmtPage() {
           )}
         </>
       )}
+
+      <BulkImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        appSlug="donor-mgmt"
+        onComplete={loadData}
+      />
     </div>
   );
 }
@@ -658,13 +665,6 @@ function DonationsTab({
           </tbody>
         </table>
       </div>
-
-      <BulkImportModal
-        open={showImport}
-        onClose={() => setShowImport(false)}
-        appSlug="donor-mgmt"
-        onComplete={loadData}
-      />
     </div>
   );
 }

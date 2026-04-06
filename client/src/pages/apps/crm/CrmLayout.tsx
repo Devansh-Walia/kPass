@@ -151,6 +151,13 @@ export default function CrmLayout() {
           )}
         </>
       )}
+
+      <BulkImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        appSlug="crm"
+        onComplete={loadData}
+      />
     </div>
   );
 }
@@ -984,13 +991,6 @@ function ActivitiesTab({
           </div>
         ))}
       </div>
-
-      <BulkImportModal
-        open={showImport}
-        onClose={() => setShowImport(false)}
-        appSlug="crm"
-        onComplete={loadData}
-      />
     </div>
   );
 }
