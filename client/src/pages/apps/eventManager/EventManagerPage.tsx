@@ -4,6 +4,7 @@ import { usersApi } from "../../../api/users";
 import { formatCurrency } from "../../../constants";
 import { useAuth } from "../../../contexts/AuthContext";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { BulkImportModal } from "../../../components/common/BulkImportModal";
 
 interface EventVolunteer {
   id: string;
@@ -51,6 +52,7 @@ export default function EventManagerPage() {
   const [tab, setTab] = useState<Tab>("upcoming");
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedEvent, setExpandedEvent] = useState<Event | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -275,7 +277,15 @@ export default function EventManagerPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Event Manager</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Event Manager</h2>
+        <button
+          onClick={() => setShowImport(true)}
+          className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+        >
+          Import CSV/Excel
+        </button>
+      </div>
 
       {/* Tab Navigation */}
       <div className="flex space-x-1 border-b border-gray-200 mb-6">
@@ -673,6 +683,13 @@ export default function EventManagerPage() {
         confirmLabel="Delete"
         onConfirm={handleDeleteEvent}
         onCancel={() => setDeleteConfirmId(null)}
+      />
+
+      <BulkImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        appSlug="event-manager"
+        onComplete={loadEvents}
       />
     </div>
   );

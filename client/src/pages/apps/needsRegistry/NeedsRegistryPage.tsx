@@ -3,6 +3,7 @@ import { needsRegistryApi } from "../../../api/needsRegistry";
 import { APPROVAL_STATUS_COLORS } from "../../../constants";
 import { useAuth } from "../../../contexts/AuthContext";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { BulkImportModal } from "../../../components/common/BulkImportModal";
 
 type Status = "ALL" | "PENDING" | "APPROVED" | "FULFILLED" | "REJECTED";
 type Category = "SANITATION" | "HEALTH" | "SUPPLIES" | "OTHER";
@@ -50,6 +51,7 @@ export default function NeedsRegistryPage() {
   const [requests, setRequests] = useState<NeedRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showImport, setShowImport] = useState(false);
 
   // Create form state
   const [showForm, setShowForm] = useState(false);
@@ -165,7 +167,15 @@ export default function NeedsRegistryPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Needs Registry</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900">Needs Registry</h2>
+        <button
+          onClick={() => setShowImport(true)}
+          className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+        >
+          Import CSV/Excel
+        </button>
+      </div>
 
       {error && (
         <div className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</div>
@@ -393,6 +403,13 @@ export default function NeedsRegistryPage() {
         confirmLabel="Delete"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <BulkImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        appSlug="needs-registry"
+        onComplete={loadRequests}
       />
     </div>
   );

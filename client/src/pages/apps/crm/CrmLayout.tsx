@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { crmApi } from "../../../api/crm";
 import { useAuth } from "../../../contexts/AuthContext";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { BulkImportModal } from "../../../components/common/BulkImportModal";
 
 type Tab = "contacts" | "pipeline" | "activities";
 
@@ -59,6 +60,7 @@ export default function CrmLayout() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showImport, setShowImport] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -91,7 +93,15 @@ export default function CrmLayout() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">CRM</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900">CRM</h2>
+        <button
+          onClick={() => setShowImport(true)}
+          className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+        >
+          Import CSV/Excel
+        </button>
+      </div>
 
       {error && (
         <div className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</div>
@@ -974,6 +984,13 @@ function ActivitiesTab({
           </div>
         ))}
       </div>
+
+      <BulkImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        appSlug="crm"
+        onComplete={loadData}
+      />
     </div>
   );
 }

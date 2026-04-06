@@ -3,6 +3,7 @@ import { taskBoardApi } from "../../../api/taskBoard";
 import { usersApi } from "../../../api/users";
 import { useAuth } from "../../../contexts/AuthContext";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { BulkImportModal } from "../../../components/common/BulkImportModal";
 
 interface Board {
   id: string;
@@ -58,6 +59,7 @@ export default function TaskBoardPage() {
   const isAdmin = user?.role === "ADMIN";
 
   const [tab, setTab] = useState<Tab>("boards");
+  const [showImport, setShowImport] = useState(false);
 
   // Board list state
   const [boards, setBoards] = useState<Board[]>([]);
@@ -288,7 +290,15 @@ export default function TaskBoardPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Task Board</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Task Board</h2>
+        <button
+          onClick={() => setShowImport(true)}
+          className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+        >
+          Import CSV/Excel
+        </button>
+      </div>
 
       {/* Tab Navigation */}
       <div className="flex space-x-1 border-b border-gray-200 mb-6">
@@ -693,6 +703,13 @@ export default function TaskBoardPage() {
         confirmLabel="Delete"
         onConfirm={handleDeleteBoard}
         onCancel={() => setBoardToDelete(null)}
+      />
+
+      <BulkImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        appSlug="task-board"
+        onComplete={loadBoards}
       />
     </div>
   );

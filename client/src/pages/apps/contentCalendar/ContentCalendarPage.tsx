@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { contentCalendarApi } from "../../../api/contentCalendar";
 import { useAuth } from "../../../contexts/AuthContext";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { BulkImportModal } from "../../../components/common/BulkImportModal";
 
 interface ContentPost {
   id: string;
@@ -56,6 +57,7 @@ export default function ContentCalendarPage() {
   const [calMonth, setCalMonth] = useState(now.getMonth()); // 0-indexed
   const [calPosts, setCalPosts] = useState<ContentPost[]>([]);
   const [calLoading, setCalLoading] = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   // List state
   const [posts, setPosts] = useState<ContentPost[]>([]);
@@ -226,12 +228,20 @@ export default function ContentCalendarPage() {
     <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Content Calendar</h2>
-        <button
-          onClick={openCreateForm}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
-        >
-          New Post
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowImport(true)}
+            className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+          >
+            Import CSV/Excel
+          </button>
+          <button
+            onClick={openCreateForm}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+          >
+            New Post
+          </button>
+        </div>
       </div>
 
       {/* Tab Navigation */}
@@ -555,6 +565,13 @@ export default function ContentCalendarPage() {
         confirmLabel="Delete"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <BulkImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        appSlug="content-calendar"
+        onComplete={() => { loadCalendarPosts(); loadListPosts(); }}
       />
     </div>
   );

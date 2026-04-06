@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { ideationApi } from "../../../api/ideation";
 import { useAuth } from "../../../contexts/AuthContext";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { BulkImportModal } from "../../../components/common/BulkImportModal";
 
 type IdeaStage = "IDEA" | "APPROVED" | "IN_PROGRESS" | "DONE";
 
@@ -38,6 +39,7 @@ export default function IdeationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [form, setForm] = useState({ title: "", description: "" });
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -145,12 +147,20 @@ export default function IdeationPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">Ideation Board</h2>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-        >
-          {showForm ? "Cancel" : "New Idea"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowImport(true)}
+            className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+          >
+            Import CSV/Excel
+          </button>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            {showForm ? "Cancel" : "New Idea"}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -227,6 +237,13 @@ export default function IdeationPage() {
         message={`Are you sure you want to delete "${deleteTarget?.title}"? This action cannot be undone.`}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <BulkImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        appSlug="ideation"
+        onComplete={loadData}
       />
     </div>
   );

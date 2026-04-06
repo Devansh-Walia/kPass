@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { donorMgmtApi } from "../../../api/donorMgmt";
 import { formatCurrency, DONOR_TYPE_COLORS } from "../../../constants";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { BulkImportModal } from "../../../components/common/BulkImportModal";
 import { useAuth } from "../../../contexts/AuthContext";
 
 type Tab = "donors" | "donations";
@@ -39,6 +40,7 @@ export default function DonorMgmtPage() {
   const [donations, setDonations] = useState<Donation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showImport, setShowImport] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -68,7 +70,15 @@ export default function DonorMgmtPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Donor / Sponsor Management</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900">Donor / Sponsor Management</h2>
+        <button
+          onClick={() => setShowImport(true)}
+          className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+        >
+          Import CSV/Excel
+        </button>
+      </div>
 
       {error && (
         <div className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</div>
@@ -648,6 +658,13 @@ function DonationsTab({
           </tbody>
         </table>
       </div>
+
+      <BulkImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        appSlug="donor-mgmt"
+        onComplete={loadData}
+      />
     </div>
   );
 }

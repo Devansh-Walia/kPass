@@ -3,6 +3,7 @@ import { financeApi } from "../../../api/finance";
 import { formatCurrency, TRANSACTION_TYPE_COLORS } from "../../../constants";
 import { useAuth } from "../../../contexts/AuthContext";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { BulkImportModal } from "../../../components/common/BulkImportModal";
 
 interface Transaction {
   id: string;
@@ -83,6 +84,8 @@ export default function FinanceDashboard() {
   const [reportEnd, setReportEnd] = useState("");
   const [report, setReport] = useState<Report | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
+
+  const [showImport, setShowImport] = useState(false);
 
   // Load overview on mount
   useEffect(() => {
@@ -242,7 +245,15 @@ export default function FinanceDashboard() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Finance Dashboard</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Finance Dashboard</h2>
+        <button
+          onClick={() => setShowImport(true)}
+          className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+        >
+          Import CSV/Excel
+        </button>
+      </div>
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
@@ -691,6 +702,13 @@ export default function FinanceDashboard() {
           )}
         </div>
       )}
+
+      <BulkImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        appSlug="finance"
+        onComplete={() => { loadOverview(); loadCategories(); loadTransactions(); }}
+      />
     </div>
   );
 }

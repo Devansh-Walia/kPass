@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { workshopTrackerApi } from "../../../api/workshopTracker";
 import { useAuth } from "../../../contexts/AuthContext";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { BulkImportModal } from "../../../components/common/BulkImportModal";
 
 type Tab = "upcoming" | "past";
 
@@ -43,8 +44,7 @@ export default function WorkshopTrackerPage() {
   const [workshops, setWorkshops] = useState<Workshop[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  // Expanded workshop detail
+  const [showImport, setShowImport] = useState(false);  // Expanded workshop detail
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<WorkshopDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -275,7 +275,15 @@ export default function WorkshopTrackerPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Workshop Tracker</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900">Workshop Tracker</h2>
+        <button
+          onClick={() => setShowImport(true)}
+          className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+        >
+          Import CSV/Excel
+        </button>
+      </div>
 
       {error && <div className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
@@ -650,6 +658,13 @@ export default function WorkshopTrackerPage() {
           ))}
         </div>
       )}
+
+      <BulkImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        appSlug="workshop-tracker"
+        onComplete={loadWorkshops}
+      />
     </div>
   );
 }

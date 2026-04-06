@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { attendanceApi } from "../../../api/attendance";
 import { ATTENDANCE_STATUS_COLORS, APPROVAL_STATUS_COLORS } from "../../../constants";
+import { BulkImportModal } from "../../../components/common/BulkImportModal";
 
 type Tab = "daily" | "leaves" | "report";
 
@@ -57,6 +58,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function AttendancePage() {
   const [tab, setTab] = useState<Tab>("daily");
+  const [showImport, setShowImport] = useState(false);
+  const [importKey, setImportKey] = useState(0);
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "daily", label: "Daily" },
@@ -66,7 +69,15 @@ export default function AttendancePage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Staff Attendance</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900">Staff Attendance</h2>
+        <button
+          onClick={() => setShowImport(true)}
+          className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+        >
+          Import CSV/Excel
+        </button>
+      </div>
 
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
@@ -86,9 +97,16 @@ export default function AttendancePage() {
         </nav>
       </div>
 
-      {tab === "daily" && <DailyTab />}
-      {tab === "leaves" && <LeavesTab />}
-      {tab === "report" && <ReportTab />}
+      {tab === "daily" && <DailyTab key={importKey} />}
+      {tab === "leaves" && <LeavesTab key={importKey} />}
+      {tab === "report" && <ReportTab key={importKey} />}
+
+      <BulkImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        appSlug="attendance"
+        onComplete={() => setImportKey((k) => k + 1)}
+      />
     </div>
   );
 }

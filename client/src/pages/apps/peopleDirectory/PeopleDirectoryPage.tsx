@@ -3,6 +3,7 @@ import { peopleDirectoryApi } from "../../../api/peopleDirectory";
 import { activeStatusBadge, activeStatusLabel } from "../../../constants";
 import { useAuth } from "../../../contexts/AuthContext";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { BulkImportModal } from "../../../components/common/BulkImportModal";
 
 interface Employee {
   id: string;
@@ -45,6 +46,7 @@ export default function PeopleDirectoryPage() {
   // Delete state
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -164,7 +166,15 @@ export default function PeopleDirectoryPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">People Directory</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900">People Directory</h2>
+        <button
+          onClick={() => setShowImport(true)}
+          className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+        >
+          Import CSV/Excel
+        </button>
+      </div>
 
       {error && (
         <div className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</div>
@@ -332,6 +342,13 @@ export default function PeopleDirectoryPage() {
         confirmLabel={deleting ? "Deleting..." : "Delete"}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <BulkImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        appSlug="people-directory"
+        onComplete={loadData}
       />
     </div>
   );
