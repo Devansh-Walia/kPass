@@ -9,9 +9,11 @@
     "start": "cd server && npx prisma migrate deploy && node dist/index.js",
     "test": "cd server && npm test && cd ../client && npm test",
     "db:migrate": "cd server && npm run db:migrate",
-    "db:seed": "cd server && npm run db:seed"
+    "db:seed": "cd server && npm run db:seed",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "husky": "^9.1.7"
   }
 }

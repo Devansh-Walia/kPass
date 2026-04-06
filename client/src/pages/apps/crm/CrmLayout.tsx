@@ -46,7 +46,7 @@ const STAGE_COLORS: Record<Deal["stage"], string> = {
   CLOSED: "bg-green-50 border-green-300",
 };
 
-const ACTIVITY_BADGES: Record<Activity["type"], { label: string; color: string }> = {
+const ACTIVITY_BADGES: Record<"CALL" | "EMAIL" | "NOTE" | "MEETING", { label: string; color: string }> = {
   CALL: { label: "Call", color: "bg-blue-100 text-blue-800" },
   EMAIL: { label: "Email", color: "bg-purple-100 text-purple-800" },
   NOTE: { label: "Note", color: "bg-gray-100 text-gray-800" },
@@ -933,8 +933,8 @@ function ActivitiesTab({
               ))}
             </select>
             <select
-              value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value as Activity["type"] | "" })}
+              value={form.type ?? ""}
+              onChange={(e) => setForm({ ...form, type: (e.target.value || "") as Activity["type"] | "" })}
               className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             >
               <option value="">Select type</option>
