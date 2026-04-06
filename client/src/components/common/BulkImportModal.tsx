@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { getAppImportConfigs, type ImportConfig, type ImportField } from "../../lib/importConfig";
 import {
   parseFile,
@@ -17,6 +17,42 @@ const STEPS: { key: Step; label: string }[] = [
   { key: "preview", label: "Preview" },
   { key: "import", label: "Import" },
 ];
+
+const PREVIEW_LIMIT = 50;
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validateCell(value: string, field: ImportField): string | null {
+  const trimmed = value.trim();
+
+  // Required check
+  if (field.required && !trimmed) {
+    return `${field.label} is required`;
+  }
+
+  // Empty optional fields are fine
+  if (!trimmed) return null;
+
+  switch (field.type) {
+    case "number":
+      if (isNaN(parseFloat(trimmed))) return "Must be a number";
+      break;
+    case "email":
+      if (!EMAIL_RE.test(trimmed)) return "Invalid email format";
+      break;
+    case "date":
+      if (isNaN(Date.parse(trimmed))) return "Invalid date";
+      break;
+    case "enum":
+      if (field.enumValues && !field.enumValues.includes(trimmed)) {
+        return `Must be one of: ${field.enumValues.join(", ")}`;
+      }
+      break;
+    // uuid and string: no client-side validation beyond required
+  }
+
+  return null;
+}
 
 interface BulkImportModalProps {
   open: boolean;
@@ -125,6 +161,38 @@ export function BulkImportModal({ open, onClose, appSlug, onComplete }: BulkImpo
   const mappingComplete = selectedConfig
     ? selectedConfig.fields.filter((f) => f.required).every((f) => columnMap[f.key])
     : false;
+
+  // Transform parsed rows using the column mapping
+  const mappedRows: Record<string, string>[] = useMemo(() => {
+    if (!parsed || !selectedConfig) return [];
+    return parsed.rows.map((row) => {
+      const out: Record<string, string> = {};
+      for (const field of selectedConfig.fields) {
+        const csvHeader = columnMap[field.key];
+        out[field.key] = csvHeader ? (row[csvHeader] ?? "").trim() : "";
+      }
+      return out;
+    });
+  }, [parsed, selectedConfig, columnMap]);
+
+  // Validate all rows, return errors keyed by rowIndex -> fieldKey -> error message
+  const validationErrors: Record<number, Record<string, string>> = useMemo(() => {
+    if (!selectedConfig || mappedRows.length === 0) return {};
+    const errors: Record<number, Record<string, string>> = {};
+    mappedRows.forEach((row, i) => {
+      for (const field of selectedConfig.fields) {
+        const err = validateCell(row[field.key] ?? "", field);
+        if (err) {
+          if (!errors[i]) errors[i] = {};
+          errors[i][field.key] = err;
+        }
+      }
+    });
+    return errors;
+  }, [mappedRows, selectedConfig]);
+
+  const errorRowCount = Object.keys(validationErrors).length;
+  const validRowCount = mappedRows.length - errorRowCount;
 
   const handleClose = () => {
     reset();
@@ -389,8 +457,82 @@ export function BulkImportModal({ open, onClose, appSlug, onComplete }: BulkImpo
               </div>
             </div>
           )}
-          {step === "preview" && (
-            <p className="text-sm text-gray-500">Preview step — coming next.</p>
+          {/* Step 3: Preview & Validate */}
+          {step === "preview" && selectedConfig && (
+            <div className="space-y-4">
+              {/* Summary bar */}
+              <div className="flex items-center justify-between text-sm">
+                <p className="text-gray-700">
+                  Showing {Math.min(mappedRows.length, PREVIEW_LIMIT)} of{" "}
+                  {mappedRows.length} rows
+                </p>
+                <div className="flex gap-4">
+                  <span className="text-green-600 font-medium">
+                    {validRowCount} valid
+                  </span>
+                  {errorRowCount > 0 && (
+                    <span className="text-red-600 font-medium">
+                      {errorRowCount} with warnings
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {errorRowCount > 0 && (
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  Rows with warnings will still be sent to the server. The server
+                  performs its own validation and will report per-row errors.
+                </p>
+              )}
+
+              {/* Preview table */}
+              <div className="border border-gray-200 rounded-lg overflow-auto max-h-[45vh]">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 text-gray-600 uppercase sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-gray-400">#</th>
+                      {selectedConfig.fields.map((f) => (
+                        <th key={f.key} className="px-3 py-2 text-left whitespace-nowrap">
+                          {f.label}
+                          {f.required && <span className="text-red-500 ml-0.5">*</span>}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {mappedRows.slice(0, PREVIEW_LIMIT).map((row, i) => {
+                      const rowErrors = validationErrors[i];
+                      return (
+                        <tr
+                          key={i}
+                          className={rowErrors ? "bg-red-50/50" : "hover:bg-gray-50"}
+                        >
+                          <td className="px-3 py-1.5 text-gray-400">{i + 1}</td>
+                          {selectedConfig.fields.map((f) => {
+                            const cellError = rowErrors?.[f.key];
+                            return (
+                              <td
+                                key={f.key}
+                                className={`px-3 py-1.5 max-w-[180px] truncate ${
+                                  cellError
+                                    ? "bg-red-100 text-red-800"
+                                    : "text-gray-700"
+                                }`}
+                                title={cellError || row[f.key] || ""}
+                              >
+                                {row[f.key] || (
+                                  <span className="text-gray-300 italic">—</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
           {step === "import" && (
             <p className="text-sm text-gray-500">Import step — coming next.</p>
@@ -422,7 +564,9 @@ export function BulkImportModal({ open, onClose, appSlug, onComplete }: BulkImpo
               disabled={step === "mapping" && !mappingComplete}
               className="px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
             >
-              Next
+              {step === "preview"
+                ? `Import ${mappedRows.length} row${mappedRows.length !== 1 ? "s" : ""}`
+                : "Next"}
             </button>
           )}
         </div>
