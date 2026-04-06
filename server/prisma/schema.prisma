@@ -190,10 +190,10 @@ enum DealStage {
 model Deal {
   id        String    @id @default(uuid())
   title     String
-  value     Float
+  value     Float?
   stage     DealStage @default(LEAD)
-  contactId String
-  contact   Contact   @relation(fields: [contactId], references: [id])
+  contactId String?
+  contact   Contact?  @relation(fields: [contactId], references: [id])
   ownerId   String
   owner     User      @relation(fields: [ownerId], references: [id])
   createdAt DateTime  @default(now())
@@ -208,14 +208,14 @@ enum ActivityType {
 }
 
 model Activity {
-  id          String       @id @default(uuid())
-  contactId   String
-  contact     Contact      @relation(fields: [contactId], references: [id])
-  type        ActivityType
+  id          String        @id @default(uuid())
+  contactId   String?
+  contact     Contact?      @relation(fields: [contactId], references: [id])
+  type        ActivityType?
   content     String
   createdById String
-  createdBy   User         @relation(fields: [createdById], references: [id])
-  createdAt   DateTime     @default(now())
+  createdBy   User          @relation(fields: [createdById], references: [id])
+  createdAt   DateTime      @default(now())
 }
 
 // ─── Task Board ───────────────────────────────────────

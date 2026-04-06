@@ -20,19 +20,20 @@ export const updateContactSchema = z.object({
 
 export const createDealSchema = z.object({
   title: z.string().min(1),
-  value: z.number().min(0),
+  value: z.number().min(0).optional().nullable(),
   stage: z.enum(["LEAD", "CONTACTED", "PROPOSAL", "CLOSED"]).default("LEAD"),
-  contactId: z.string().uuid(),
+  contactId: z.string().uuid().optional().nullable(),
 });
 
 export const updateDealSchema = z.object({
   title: z.string().min(1).optional(),
-  value: z.number().min(0).optional(),
+  value: z.number().min(0).optional().nullable(),
   stage: z.enum(["LEAD", "CONTACTED", "PROPOSAL", "CLOSED"]).optional(),
+  contactId: z.string().uuid().optional().nullable(),
 });
 
 export const createActivitySchema = z.object({
-  contactId: z.string().uuid(),
-  type: z.enum(["CALL", "EMAIL", "NOTE", "MEETING"]),
+  contactId: z.string().uuid().optional().nullable(),
+  type: z.enum(["CALL", "EMAIL", "NOTE", "MEETING"]).optional().nullable(),
   content: z.string().min(1),
 });

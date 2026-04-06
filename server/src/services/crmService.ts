@@ -16,7 +16,7 @@ export const crmService = {
   listDeals: () =>
     prisma.deal.findMany({ include: { contact: { select: { name: true } }, owner: { select: { firstName: true, lastName: true } } }, orderBy: { createdAt: "desc" } }),
 
-  createDeal: (data: { title: string; value: number; stage?: any; contactId: string }, userId: string) =>
+  createDeal: (data: { title: string; value?: number | null; stage?: any; contactId?: string | null }, userId: string) =>
     prisma.deal.create({ data: { ...data, ownerId: userId } }),
 
   updateDeal: (id: string, data: any) =>
@@ -31,7 +31,7 @@ export const crmService = {
     });
   },
 
-  createActivity: (data: { contactId: string; type: any; content: string }, userId: string) =>
+  createActivity: (data: { contactId?: string | null; type?: any; content: string }, userId: string) =>
     prisma.activity.create({ data: { ...data, createdById: userId } }),
 
   deleteContact: (id: string) =>

@@ -72,7 +72,7 @@ export const IMPORT_CONFIGS: Record<string, ImportConfig> = {
     templatePath: "/apps/crm/import-template?entity=deal",
     fields: [
       { key: "title", label: "Title", type: "string", required: true },
-      { key: "value", label: "Value", type: "number", required: true },
+      { key: "value", label: "Value", type: "number", required: false },
       { key: "stage", label: "Stage", type: "enum", required: false, enumValues: ["LEAD", "CONTACTED", "PROPOSAL", "CLOSED"], description: "Defaults to LEAD" },
       { key: "contactId", label: "Contact ID", type: "uuid", required: false, description: "Either contactId or contactName" },
       { key: "contactName", label: "Contact Name", type: "string", required: false, description: "Will resolve to contactId" },
@@ -87,7 +87,7 @@ export const IMPORT_CONFIGS: Record<string, ImportConfig> = {
     fields: [
       { key: "contactId", label: "Contact ID", type: "uuid", required: false, description: "Either contactId or contactName" },
       { key: "contactName", label: "Contact Name", type: "string", required: false, description: "Will resolve to contactId" },
-      { key: "type", label: "Type", type: "enum", required: true, enumValues: ["CALL", "EMAIL", "NOTE", "MEETING"] },
+      { key: "type", label: "Type", type: "enum", required: false, enumValues: ["CALL", "EMAIL", "NOTE", "MEETING"] },
       { key: "content", label: "Content", type: "string", required: true },
     ],
     example: { contactName: "Rahul Sharma", type: "CALL", content: "Discussed sponsorship plans" },

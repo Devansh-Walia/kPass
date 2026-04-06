@@ -21,17 +21,17 @@ interface Contact {
 interface Deal {
   id: string;
   title: string;
-  value: number;
+  value: number | null;
   stage: "LEAD" | "CONTACTED" | "PROPOSAL" | "CLOSED";
   contact?: Contact;
-  contactId: string;
+  contactId: string | null;
 }
 
 interface Activity {
   id: string;
-  type: "CALL" | "EMAIL" | "NOTE" | "MEETING";
+  type: "CALL" | "EMAIL" | "NOTE" | "MEETING" | null;
   content: string;
-  contactId: string;
+  contactId: string | null;
   contact?: Contact;
   createdBy?: { name: string };
   createdAt: string;
@@ -518,7 +518,7 @@ function ContactRow({
                       {expandedData.deals.map((d) => (
                         <li key={d.id} className="text-sm text-gray-700">
                           <span className="font-medium">{d.title}</span>{" "}
-                          — ${Number(d.value).toLocaleString()}{" "}
+                          {d.value != null && <>— ${Number(d.value).toLocaleString()}{" "}</>}
                           <span className="rounded bg-gray-200 px-1.5 py-0.5 text-xs">{d.stage}</span>
                         </li>
                       ))}
@@ -534,9 +534,13 @@ function ContactRow({
                     <ul className="mt-1 space-y-1">
                       {expandedData.activities.map((a) => (
                         <li key={a.id} className="text-sm text-gray-700">
-                          <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${ACTIVITY_BADGES[a.type].color}`}>
-                            {ACTIVITY_BADGES[a.type].label}
-                          </span>{" "}
+                          {a.type ? (
+                            <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${ACTIVITY_BADGES[a.type].color}`}>
+                              {ACTIVITY_BADGES[a.type].label}
+                            </span>
+                          ) : (
+                            <span className="inline-block rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500">—</span>
+                          )}{" "}
                           {a.content}{" "}
                           <span className="text-gray-400">
                             {new Date(a.createdAt).toLocaleDateString()}
@@ -588,13 +592,13 @@ function PipelineTab({
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title.trim() || !form.contactId) return;
+    if (!form.title.trim()) return;
     setSubmitting(true);
     try {
       await crmApi.createDeal({
         title: form.title.trim(),
-        value: parseFloat(form.value) || 0,
-        contactId: form.contactId,
+        value: form.value ? parseFloat(form.value) : undefined,
+        contactId: form.contactId || undefined,
         stage: form.stage,
       });
       setForm({ title: "", value: "", contactId: "", stage: "LEAD" });
@@ -618,7 +622,7 @@ function PipelineTab({
 
   const startEditDeal = (deal: Deal) => {
     setEditingDealId(deal.id);
-    setEditDealForm({ title: deal.title, value: String(deal.value) });
+    setEditDealForm({ title: deal.title, value: deal.value != null ? String(deal.value) : "" });
   };
 
   const cancelEditDeal = () => {
@@ -633,7 +637,7 @@ function PipelineTab({
     try {
       await crmApi.updateDeal(editingDealId, {
         title: editDealForm.title.trim(),
-        value: parseFloat(editDealForm.value) || 0,
+        value: editDealForm.value ? parseFloat(editDealForm.value) : undefined,
       });
       cancelEditDeal();
       await onRefresh();
@@ -693,12 +697,11 @@ function PipelineTab({
               className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             />
             <select
-              required
               value={form.contactId}
               onChange={(e) => setForm({ ...form, contactId: e.target.value })}
               className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             >
-              <option value="">Select contact *</option>
+              <option value="">Select contact</option>
               {contacts.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
@@ -814,7 +817,7 @@ function DealCard({
       >
         {deal.title}
       </p>
-      <p className="text-xs text-gray-500">${Number(deal.value).toLocaleString()}</p>
+      <p className="text-xs text-gray-500">{deal.value != null ? `$${Number(deal.value).toLocaleString()}` : "-"}</p>
       {deal.contact && (
         <p className="text-xs text-gray-400">{deal.contact.name}</p>
       )}
@@ -862,21 +865,21 @@ function ActivitiesTab({
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ contactId: "", type: "NOTE" as Activity["type"], content: "" });
+  const [form, setForm] = useState({ contactId: "", type: "" as Activity["type"] | "", content: "" });
   const [submitting, setSubmitting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; content: string } | null>(null);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.contactId || !form.content.trim()) return;
+    if (!form.content.trim()) return;
     setSubmitting(true);
     try {
       await crmApi.createActivity({
-        contactId: form.contactId,
-        type: form.type,
+        contactId: form.contactId || undefined,
+        type: form.type || undefined,
         content: form.content.trim(),
       });
-      setForm({ contactId: "", type: "NOTE", content: "" });
+      setForm({ contactId: "", type: "", content: "" });
       setShowForm(false);
       await onRefresh();
     } catch {
@@ -920,21 +923,21 @@ function ActivitiesTab({
         <form onSubmit={handleCreate} className="rounded border border-gray-200 bg-gray-50 p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <select
-              required
               value={form.contactId}
               onChange={(e) => setForm({ ...form, contactId: e.target.value })}
               className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             >
-              <option value="">Select contact *</option>
+              <option value="">Select contact</option>
               {contacts.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
             <select
               value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value as Activity["type"] })}
+              onChange={(e) => setForm({ ...form, type: e.target.value as Activity["type"] | "" })}
               className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             >
+              <option value="">Select type</option>
               <option value="CALL">Call</option>
               <option value="EMAIL">Email</option>
               <option value="NOTE">Note</option>
@@ -965,9 +968,16 @@ function ActivitiesTab({
         )}
         {activities.map((a) => (
           <div key={a.id} className="flex items-start gap-3 rounded border border-gray-200 bg-white p-4">
-            <span className={`mt-0.5 inline-block rounded px-2 py-0.5 text-xs font-medium ${ACTIVITY_BADGES[a.type].color}`}>
-              {ACTIVITY_BADGES[a.type].label}
-            </span>
+            {a.type && (
+              <span className={`mt-0.5 inline-block rounded px-2 py-0.5 text-xs font-medium ${ACTIVITY_BADGES[a.type].color}`}>
+                {ACTIVITY_BADGES[a.type].label}
+              </span>
+            )}
+            {!a.type && (
+              <span className="mt-0.5 inline-block rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                —
+              </span>
+            )}
             <div className="min-w-0 flex-1">
               <p className="text-sm text-gray-900">{a.content}</p>
               <p className="mt-1 text-xs text-gray-500">
