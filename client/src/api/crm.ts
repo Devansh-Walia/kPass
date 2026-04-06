@@ -27,4 +27,8 @@ export const crmApi = {
     apiClient.delete(`/apps/crm/deals/${id}`).then((res) => res.data.data),
   deleteActivity: (id: string) =>
     apiClient.delete(`/apps/crm/activities/${id}`).then((res) => res.data.data),
+  bulkImport: (entity: string, rows: Record<string, unknown>[]) =>
+    apiClient.post("/apps/crm/bulk-import", { entity, rows }).then((res) => res.data.data),
+  getImportTemplate: (entity: string) =>
+    apiClient.get("/apps/crm/import-template", { params: { entity } }).then((res) => res.data.data),
 };

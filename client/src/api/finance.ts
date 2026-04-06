@@ -19,4 +19,8 @@ export const financeApi = {
     apiClient
       .get("/apps/finance/reports", { params: { startDate, endDate } })
       .then((res) => res.data.data),
+  bulkImport: (entity: string, rows: Record<string, unknown>[]) =>
+    apiClient.post("/apps/finance/bulk-import", { entity, rows }).then((res) => res.data.data),
+  getImportTemplate: (entity: string) =>
+    apiClient.get("/apps/finance/import-template", { params: { entity } }).then((res) => res.data.data),
 };

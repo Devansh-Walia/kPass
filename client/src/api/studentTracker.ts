@@ -17,4 +17,8 @@ export const studentTrackerApi = {
     apiClient.delete(`/apps/student-tracker/students/${id}`).then((res) => res.data.data),
   getReport: (batch: string, startDate: string, endDate: string) =>
     apiClient.get("/apps/student-tracker/report", { params: { batch, startDate, endDate } }).then((res) => res.data.data),
+  bulkImport: (entity: string, rows: Record<string, unknown>[]) =>
+    apiClient.post("/apps/student-tracker/bulk-import", { entity, rows }).then((res) => res.data.data),
+  getImportTemplate: (entity: string) =>
+    apiClient.get("/apps/student-tracker/import-template", { params: { entity } }).then((res) => res.data.data),
 };

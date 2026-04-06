@@ -15,4 +15,8 @@ export const eventManagerApi = {
     apiClient.delete(`/apps/event-manager/events/${eventId}/volunteers/${userId}`).then((res) => res.data.data),
   deleteEvent: (id: string) =>
     apiClient.delete(`/apps/event-manager/events/${id}`).then((res) => res.data.data),
+  bulkImport: (entity: string, rows: Record<string, unknown>[]) =>
+    apiClient.post("/apps/event-manager/bulk-import", { entity, rows }).then((res) => res.data.data),
+  getImportTemplate: (entity: string) =>
+    apiClient.get("/apps/event-manager/import-template", { params: { entity } }).then((res) => res.data.data),
 };

@@ -15,4 +15,8 @@ export const attendanceApi = {
     apiClient.patch(`/apps/attendance/leaves/${id}`, { status }).then((res) => res.data.data),
   getReport: (month: number, year: number) =>
     apiClient.get("/apps/attendance/report", { params: { month, year } }).then((res) => res.data.data),
+  bulkImport: (entity: string, rows: Record<string, unknown>[]) =>
+    apiClient.post("/apps/attendance/bulk-import", { entity, rows }).then((res) => res.data.data),
+  getImportTemplate: (entity: string) =>
+    apiClient.get("/apps/attendance/import-template", { params: { entity } }).then((res) => res.data.data),
 };

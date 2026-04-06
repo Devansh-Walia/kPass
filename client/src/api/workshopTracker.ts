@@ -21,4 +21,8 @@ export const workshopTrackerApi = {
     apiClient.delete(`/apps/workshop-tracker/workshops/${id}`).then((res) => res.data.data),
   removeParticipant: (id: string) =>
     apiClient.delete(`/apps/workshop-tracker/participants/${id}`).then((res) => res.data.data),
+  bulkImport: (entity: string, rows: Record<string, unknown>[]) =>
+    apiClient.post("/apps/workshop-tracker/bulk-import", { entity, rows }).then((res) => res.data.data),
+  getImportTemplate: (entity: string) =>
+    apiClient.get("/apps/workshop-tracker/import-template", { params: { entity } }).then((res) => res.data.data),
 };

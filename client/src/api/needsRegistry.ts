@@ -13,4 +13,8 @@ export const needsRegistryApi = {
     apiClient.patch(`/apps/needs-registry/requests/${id}`, data).then((res) => res.data.data),
   deleteRequest: (id: string) =>
     apiClient.delete(`/apps/needs-registry/requests/${id}`).then((res) => res.data.data),
+  bulkImport: (entity: string, rows: Record<string, unknown>[]) =>
+    apiClient.post("/apps/needs-registry/bulk-import", { entity, rows }).then((res) => res.data.data),
+  getImportTemplate: (entity: string) =>
+    apiClient.get("/apps/needs-registry/import-template", { params: { entity } }).then((res) => res.data.data),
 };

@@ -17,4 +17,8 @@ export const donorMgmtApi = {
     apiClient.delete(`/apps/donor-mgmt/donors/${id}`).then((res) => res.data.data),
   deleteDonation: (id: string) =>
     apiClient.delete(`/apps/donor-mgmt/donations/${id}`).then((res) => res.data.data),
+  bulkImport: (entity: string, rows: Record<string, unknown>[]) =>
+    apiClient.post("/apps/donor-mgmt/bulk-import", { entity, rows }).then((res) => res.data.data),
+  getImportTemplate: (entity: string) =>
+    apiClient.get("/apps/donor-mgmt/import-template", { params: { entity } }).then((res) => res.data.data),
 };

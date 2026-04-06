@@ -15,4 +15,8 @@ export const taskBoardApi = {
     apiClient.delete(`/apps/task-board/tasks/${id}`).then((res) => res.data.data),
   deleteBoard: (id: string) =>
     apiClient.delete(`/apps/task-board/boards/${id}`).then((res) => res.data.data),
+  bulkImport: (entity: string, rows: Record<string, unknown>[]) =>
+    apiClient.post("/apps/task-board/bulk-import", { entity, rows }).then((res) => res.data.data),
+  getImportTemplate: (entity: string) =>
+    apiClient.get("/apps/task-board/import-template", { params: { entity } }).then((res) => res.data.data),
 };
