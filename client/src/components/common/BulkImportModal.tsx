@@ -8,6 +8,7 @@ import {
   ACCEPTED_FILE_TYPES,
   type ParsedFile,
 } from "../../lib/csvParser";
+import { apiClient } from "../../api/client";
 
 type Step = "upload" | "mapping" | "preview" | "import";
 
@@ -19,6 +20,13 @@ const STEPS: { key: Step; label: string }[] = [
 ];
 
 const PREVIEW_LIMIT = 50;
+const BATCH_SIZE = 50;
+
+interface RowResult {
+  row: number;
+  status: "success" | "error";
+  error?: string;
+}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -78,6 +86,12 @@ export function BulkImportModal({ open, onClose, appSlug, onComplete }: BulkImpo
   // Column mapping state
   const [columnMap, setColumnMap] = useState<Record<string, string>>({});
 
+  // Import state
+  const [importing, setImporting] = useState(false);
+  const [importDone, setImportDone] = useState(false);
+  const [importProgress, setImportProgress] = useState({ completed: 0, total: 0 });
+  const [importResults, setImportResults] = useState<RowResult[]>([]);
+
   // Derived
   const selectedConfig: ImportConfig | null =
     configs.length === 1
@@ -95,6 +109,10 @@ export function BulkImportModal({ open, onClose, appSlug, onComplete }: BulkImpo
     setParsing(false);
     setDragging(false);
     setColumnMap({});
+    setImporting(false);
+    setImportDone(false);
+    setImportProgress({ completed: 0, total: 0 });
+    setImportResults([]);
   }, []);
 
   const handleFile = async (f: File) => {
@@ -193,6 +211,92 @@ export function BulkImportModal({ open, onClose, appSlug, onComplete }: BulkImpo
 
   const errorRowCount = Object.keys(validationErrors).length;
   const validRowCount = mappedRows.length - errorRowCount;
+
+  // Run the batched import
+  const runImport = useCallback(async () => {
+    if (!selectedConfig || mappedRows.length === 0) return;
+    setImporting(true);
+    setImportDone(false);
+    setImportResults([]);
+
+    const batches: Record<string, string>[][] = [];
+    for (let i = 0; i < mappedRows.length; i += BATCH_SIZE) {
+      batches.push(mappedRows.slice(i, i + BATCH_SIZE));
+    }
+    setImportProgress({ completed: 0, total: batches.length });
+
+    const allResults: RowResult[] = [];
+    let globalRowOffset = 0;
+
+    for (let b = 0; b < batches.length; b++) {
+      const batch = batches[b];
+      try {
+        const res = await apiClient.post(selectedConfig.apiPath, {
+          entity: selectedConfig.entityKey,
+          rows: batch,
+        });
+        const batchResults: RowResult[] = (res.data.data.results || []).map(
+          (r: any) => ({
+            ...r,
+            row: r.row + globalRowOffset,
+          })
+        );
+        allResults.push(...batchResults);
+      } catch (err: any) {
+        // If the entire batch request fails, mark all rows as failed
+        const errMsg =
+          err.response?.data?.error || err.message || "Request failed";
+        for (let j = 0; j < batch.length; j++) {
+          allResults.push({
+            row: globalRowOffset + j + 1,
+            status: "error",
+            error: errMsg,
+          });
+        }
+      }
+      globalRowOffset += batch.length;
+      setImportProgress({ completed: b + 1, total: batches.length });
+    }
+
+    setImportResults(allResults);
+    setImporting(false);
+    setImportDone(true);
+  }, [selectedConfig, mappedRows]);
+
+  // Start import automatically when entering the import step
+  useEffect(() => {
+    if (step === "import" && !importing && !importDone) {
+      runImport();
+    }
+  }, [step, importing, importDone, runImport]);
+
+  const importSucceeded = importResults.filter((r) => r.status === "success").length;
+  const importFailed = importResults.filter((r) => r.status === "error").length;
+  const failedResults = importResults.filter((r) => r.status === "error");
+
+  const handleDownloadErrors = () => {
+    if (failedResults.length === 0 || !selectedConfig) return;
+    const headers = ["Row", ...selectedConfig.fields.map((f) => f.key), "Error"];
+    const csvRows = failedResults.map((r) => {
+      const originalRow = mappedRows[r.row - 1];
+      const values = selectedConfig.fields.map((f) => {
+        const val = originalRow?.[f.key] ?? "";
+        if (val.includes(",") || val.includes('"') || val.includes("\n")) {
+          return `"${val.replace(/"/g, '""')}"`;
+        }
+        return val;
+      });
+      const errVal = (r.error ?? "").replace(/"/g, '""');
+      return [String(r.row), ...values, `"${errVal}"`].join(",");
+    });
+    const csv = [headers.join(","), ...csvRows].join("\n");
+    downloadCSV(csv, `${selectedConfig.entityKey}_import_errors.csv`);
+  };
+
+  const handleDone = () => {
+    if (onComplete) onComplete();
+    handleClose();
+  };
 
   const handleClose = () => {
     reset();
@@ -534,40 +638,156 @@ export function BulkImportModal({ open, onClose, appSlug, onComplete }: BulkImpo
               </div>
             </div>
           )}
+          {/* Step 4: Import & Results */}
           {step === "import" && (
-            <p className="text-sm text-gray-500">Import step — coming next.</p>
+            <div className="space-y-4">
+              {/* Progress bar */}
+              {importing && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <p className="text-gray-700 font-medium">Importing...</p>
+                    <p className="text-gray-500">
+                      Batch {importProgress.completed} of {importProgress.total}
+                    </p>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div
+                      className="bg-indigo-600 h-3 rounded-full transition-all duration-300"
+                      style={{
+                        width: `${
+                          importProgress.total > 0
+                            ? (importProgress.completed / importProgress.total) * 100
+                            : 0
+                        }%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Results summary */}
+              {importDone && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                      <p className="text-2xl font-bold text-gray-900">{importResults.length}</p>
+                      <p className="text-xs text-gray-500 mt-1">Total Rows</p>
+                    </div>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                      <p className="text-2xl font-bold text-green-700">{importSucceeded}</p>
+                      <p className="text-xs text-green-600 mt-1">Succeeded</p>
+                    </div>
+                    <div
+                      className={`border rounded-lg p-4 text-center ${
+                        importFailed > 0
+                          ? "bg-red-50 border-red-200"
+                          : "bg-gray-50 border-gray-200"
+                      }`}
+                    >
+                      <p
+                        className={`text-2xl font-bold ${
+                          importFailed > 0 ? "text-red-700" : "text-gray-900"
+                        }`}
+                      >
+                        {importFailed}
+                      </p>
+                      <p
+                        className={`text-xs mt-1 ${
+                          importFailed > 0 ? "text-red-600" : "text-gray-500"
+                        }`}
+                      >
+                        Failed
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Failed rows table */}
+                  {failedResults.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-red-700">
+                          Failed Rows ({failedResults.length})
+                        </p>
+                        <button
+                          onClick={handleDownloadErrors}
+                          className="px-3 py-1.5 text-xs font-medium text-red-600 border border-red-300 rounded-md hover:bg-red-50"
+                        >
+                          Download Error Report
+                        </button>
+                      </div>
+                      <div className="border border-gray-200 rounded-lg overflow-auto max-h-[30vh]">
+                        <table className="w-full text-xs">
+                          <thead className="bg-gray-50 text-gray-600 uppercase sticky top-0">
+                            <tr>
+                              <th className="px-3 py-2 text-left">Row</th>
+                              <th className="px-3 py-2 text-left">Error</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {failedResults.map((r) => (
+                              <tr key={r.row} className="hover:bg-red-50/50">
+                                <td className="px-3 py-1.5 text-gray-700 font-medium">
+                                  {r.row}
+                                </td>
+                                <td className="px-3 py-1.5 text-red-600">{r.error}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           )}
         </div>
 
         {/* Footer */}
         <div className="border-t px-6 py-4 flex justify-between">
-          <button
-            onClick={
-              step === "upload"
-                ? handleClose
-                : () => {
-                    if (step === "mapping") {
-                      setFile(null);
-                      setParsed(null);
-                      setColumnMap({});
-                    }
-                    setStep(STEPS[stepIndex - 1].key);
-                  }
-            }
-            className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            {step === "upload" ? "Cancel" : "Back"}
-          </button>
-          {step !== "import" && step !== "upload" && selectedConfig && (
-            <button
-              onClick={() => setStep(STEPS[stepIndex + 1].key)}
-              disabled={step === "mapping" && !mappingComplete}
-              className="px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {step === "preview"
-                ? `Import ${mappedRows.length} row${mappedRows.length !== 1 ? "s" : ""}`
-                : "Next"}
-            </button>
+          {step === "import" && importDone ? (
+            <>
+              <div />
+              <button
+                onClick={handleDone}
+                className="px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
+              >
+                Done
+              </button>
+            </>
+          ) : step === "import" && importing ? (
+            <div />
+          ) : (
+            <>
+              <button
+                onClick={
+                  step === "upload"
+                    ? handleClose
+                    : () => {
+                        if (step === "mapping") {
+                          setFile(null);
+                          setParsed(null);
+                          setColumnMap({});
+                        }
+                        setStep(STEPS[stepIndex - 1].key);
+                      }
+                }
+                className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                {step === "upload" ? "Cancel" : "Back"}
+              </button>
+              {step !== "import" && step !== "upload" && selectedConfig && (
+                <button
+                  onClick={() => setStep(STEPS[stepIndex + 1].key)}
+                  disabled={step === "mapping" && !mappingComplete}
+                  className="px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {step === "preview"
+                    ? `Import ${mappedRows.length} row${mappedRows.length !== 1 ? "s" : ""}`
+                    : "Next"}
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
