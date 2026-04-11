@@ -1,18 +1,7 @@
 import { z } from "zod";
+import { emptyToUndefined, optionalString, optionalEmail, optionalNullableUuid } from "./helpers.js";
 
-/** Transform empty/whitespace-only strings to undefined so optional fields are treated as "not provided" */
-const emptyToUndefined = z.literal("").transform(() => undefined);
-
-/** Optional string that treats "" as undefined */
-const optionalString = z.string().min(1).optional().or(emptyToUndefined);
-
-/** Optional email that treats "" as undefined, validates non-empty values as email */
-const optionalEmail = z.string().email().optional().or(emptyToUndefined);
-
-/** Optional UUID that treats "" as undefined */
-const optionalUuid = z.string().uuid().optional().nullable().or(emptyToUndefined);
-
-/** Optional enum that treats "" as undefined */
+/** CRM-specific optional enums that treat "" as undefined */
 const optionalStage = z.enum(["LEAD", "CONTACTED", "PROPOSAL", "CLOSED"]).optional().or(emptyToUndefined);
 const optionalActivityType = z.enum(["CALL", "EMAIL", "NOTE", "MEETING"]).optional().nullable().or(emptyToUndefined);
 
@@ -38,18 +27,18 @@ export const createDealSchema = z.object({
   title: z.string().min(1),
   value: z.number().min(0).optional().nullable(),
   stage: optionalStage.default("LEAD"),
-  contactId: optionalUuid,
+  contactId: optionalNullableUuid,
 });
 
 export const updateDealSchema = z.object({
   title: z.string().min(1).optional().or(emptyToUndefined),
   value: z.number().min(0).optional().nullable(),
   stage: optionalStage,
-  contactId: optionalUuid,
+  contactId: optionalNullableUuid,
 });
 
 export const createActivitySchema = z.object({
-  contactId: optionalUuid,
+  contactId: optionalNullableUuid,
   type: optionalActivityType,
   content: z.string().min(1),
 });

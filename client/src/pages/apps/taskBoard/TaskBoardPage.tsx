@@ -47,13 +47,6 @@ const PRIORITY_COLORS: Record<TaskPriority, string> = {
   HIGH: "bg-red-100 text-red-700",
 };
 
-const STATUS_COLORS: Record<TaskStatus, string> = {
-  TODO: "bg-gray-100 text-gray-700",
-  IN_PROGRESS: "bg-blue-100 text-blue-700",
-  REVIEW: "bg-purple-100 text-purple-700",
-  DONE: "bg-green-100 text-green-700",
-};
-
 export default function TaskBoardPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
@@ -82,6 +75,7 @@ export default function TaskBoardPage() {
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
+  const [taskStatus, setTaskStatus] = useState<TaskStatus>("TODO");
   const [taskPriority, setTaskPriority] = useState<TaskPriority>("MEDIUM");
   const [taskDueDate, setTaskDueDate] = useState("");
   const [taskAssigneeId, setTaskAssigneeId] = useState("");
@@ -92,6 +86,7 @@ export default function TaskBoardPage() {
   const [editingTask, setEditingTask] = useState<TaskCard | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editStatus, setEditStatus] = useState<TaskStatus>("TODO");
   const [editPriority, setEditPriority] = useState<TaskPriority>("MEDIUM");
   const [editDueDate, setEditDueDate] = useState("");
   const [editAssigneeId, setEditAssigneeId] = useState("");
@@ -101,7 +96,9 @@ export default function TaskBoardPage() {
   // Users for assignee picker
   const [users, setUsers] = useState<UserOption[]>([]);
 
-  // Load boards on mount
+  // Drag and drop state
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
   useEffect(() => {
     loadBoards();
     loadUsers();
@@ -191,12 +188,14 @@ export default function TaskBoardPage() {
       await taskBoardApi.createTask(selectedBoard.id, {
         title: taskTitle,
         description: taskDescription || undefined,
+        status: taskStatus,
         priority: taskPriority,
         dueDate: taskDueDate || undefined,
         assigneeId: taskAssigneeId || undefined,
       });
       setTaskTitle("");
       setTaskDescription("");
+      setTaskStatus("TODO");
       setTaskPriority("MEDIUM");
       setTaskDueDate("");
       setTaskAssigneeId("");
@@ -215,6 +214,7 @@ export default function TaskBoardPage() {
     setEditingTask(task);
     setEditTitle(task.title);
     setEditDescription(task.description || "");
+    setEditStatus(task.status);
     setEditPriority(task.priority);
     setEditDueDate(task.dueDate ? task.dueDate.slice(0, 10) : "");
     setEditAssigneeId(task.assigneeId || "");
@@ -225,6 +225,7 @@ export default function TaskBoardPage() {
     setEditingTask(null);
     setEditTitle("");
     setEditDescription("");
+    setEditStatus("TODO");
     setEditPriority("MEDIUM");
     setEditDueDate("");
     setEditAssigneeId("");
@@ -244,6 +245,7 @@ export default function TaskBoardPage() {
       const updated = await taskBoardApi.updateTask(editingTask.id, {
         title: editTitle,
         description: editDescription || undefined,
+        status: editStatus,
         priority: editPriority,
         dueDate: editDueDate || undefined,
         assigneeId: editAssigneeId || null,
@@ -273,6 +275,61 @@ export default function TaskBoardPage() {
     } catch {
       // silently fail
     }
+  }
+
+  // Drag and drop handlers
+  function handleDragStart(e: React.DragEvent, taskId: string) {
+    setDraggedTaskId(taskId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", taskId);
+    // Make the dragged element semi-transparent
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = "0.5";
+    }
+  }
+
+  function handleDragEnd(e: React.DragEvent) {
+    setDraggedTaskId(null);
+    setDragOverColumn(null);
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = "1";
+    }
+  }
+
+  function handleDragOver(e: React.DragEvent, columnStatus: TaskStatus) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverColumn(columnStatus);
+  }
+
+  function handleDragLeave(e: React.DragEvent, columnStatus: TaskStatus) {
+    // Only clear if we're leaving the column itself (not entering a child)
+    const relatedTarget = e.relatedTarget as HTMLElement | null;
+    const currentTarget = e.currentTarget as HTMLElement;
+    if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
+      if (dragOverColumn === columnStatus) {
+        setDragOverColumn(null);
+      }
+    }
+  }
+
+  function handleDrop(e: React.DragEvent, targetStatus: TaskStatus) {
+    e.preventDefault();
+    setDragOverColumn(null);
+    const taskId = e.dataTransfer.getData("text/plain") || draggedTaskId;
+    if (!taskId) return;
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task || task.status === targetStatus) {
+      setDraggedTaskId(null);
+      return;
+    }
+    // Optimistically update the UI
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, status: targetStatus } : t))
+    );
+    setDraggedTaskId(null);
+    // Persist to backend
+    handleUpdateStatus(taskId, targetStatus);
   }
 
   function goBackToBoards() {
@@ -449,7 +506,7 @@ export default function TaskBoardPage() {
           {showTaskForm && (
             <form
               onSubmit={handleCreateTask}
-              className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+              className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
             >
               <div className="sm:col-span-2">
                 <label className="block text-xs font-medium text-gray-600 mb-1">Title</label>
@@ -461,6 +518,18 @@ export default function TaskBoardPage() {
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
+                <select
+                  value={taskStatus}
+                  onChange={(e) => setTaskStatus(e.target.value as TaskStatus)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {STATUS_COLUMNS.map((s) => (
+                    <option key={s.key} value={s.key}>{s.label}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Priority</label>
@@ -549,7 +618,19 @@ export default function TaskBoardPage() {
                       className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
+                      <select
+                        value={editStatus}
+                        onChange={(e) => setEditStatus(e.target.value as TaskStatus)}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        {STATUS_COLUMNS.map((s) => (
+                          <option key={s.key} value={s.key}>{s.label}</option>
+                        ))}
+                      </select>
+                    </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Priority</label>
                       <select
@@ -618,8 +699,19 @@ export default function TaskBoardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {STATUS_COLUMNS.map((col) => {
                 const colTasks = tasks.filter((t) => t.status === col.key);
+                const isOver = dragOverColumn === col.key;
                 return (
-                  <div key={col.key} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <div
+                    key={col.key}
+                    className={`bg-gray-50 border-2 rounded-lg p-3 transition-colors min-h-[200px] ${
+                      isOver
+                        ? "border-indigo-400 bg-indigo-50"
+                        : "border-gray-200"
+                    }`}
+                    onDragOver={(e) => handleDragOver(e, col.key)}
+                    onDragLeave={(e) => handleDragLeave(e, col.key)}
+                    onDrop={(e) => handleDrop(e, col.key)}
+                  >
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-sm font-semibold text-gray-700">{col.label}</h4>
                       <span className="text-xs text-gray-400">{colTasks.length}</span>
@@ -628,7 +720,12 @@ export default function TaskBoardPage() {
                       {colTasks.map((task) => (
                         <div
                           key={task.id}
-                          className="bg-white border border-gray-200 rounded-md p-3 shadow-sm cursor-pointer hover:border-indigo-300 transition-colors"
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, task.id)}
+                          onDragEnd={handleDragEnd}
+                          className={`bg-white border border-gray-200 rounded-md p-3 shadow-sm cursor-grab hover:border-indigo-300 transition-all active:cursor-grabbing ${
+                            draggedTaskId === task.id ? "opacity-50 ring-2 ring-indigo-300" : ""
+                          }`}
                           onClick={() => openEditTask(task)}
                         >
                           <div className="flex items-start justify-between mb-2">
@@ -649,7 +746,7 @@ export default function TaskBoardPage() {
                           {task.description && (
                             <p className="text-xs text-gray-500 mb-2">{task.description}</p>
                           )}
-                          <div className="flex flex-wrap items-center gap-1 mb-2">
+                          <div className="flex flex-wrap items-center gap-1">
                             <span
                               className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${PRIORITY_COLORS[task.priority]}`}
                             >
@@ -666,25 +763,12 @@ export default function TaskBoardPage() {
                               </span>
                             )}
                           </div>
-                          {/* Status move buttons */}
-                          <div className="flex flex-wrap gap-1">
-                            {STATUS_COLUMNS.filter((s) => s.key !== task.status).map((s) => (
-                              <button
-                                key={s.key}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleUpdateStatus(task.id, s.key);
-                                }}
-                                className={`px-2 py-0.5 rounded text-xs font-medium transition-colors hover:opacity-80 ${STATUS_COLORS[s.key]}`}
-                              >
-                                {s.label}
-                              </button>
-                            ))}
-                          </div>
                         </div>
                       ))}
                       {colTasks.length === 0 && (
-                        <p className="text-xs text-gray-400 text-center py-4">No tasks</p>
+                        <p className={`text-xs text-center py-4 ${isOver ? "text-indigo-400" : "text-gray-400"}`}>
+                          {isOver ? "Drop here" : "No tasks"}
+                        </p>
                       )}
                     </div>
                   </div>

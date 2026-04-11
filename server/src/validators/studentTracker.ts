@@ -1,19 +1,20 @@
 import { z } from "zod";
+import { optionalString, emptyToUndefined } from "./helpers.js";
 
 export const createStudentSchema = z.object({
   name: z.string().min(1),
   age: z.number().int().positive(),
   guardianName: z.string().min(1),
-  guardianPhone: z.string().optional(),
+  guardianPhone: optionalString,
   batch: z.string().min(1),
 });
 
 export const updateStudentSchema = z.object({
-  name: z.string().min(1).optional(),
+  name: z.string().min(1).optional().or(emptyToUndefined),
   age: z.number().int().positive().optional(),
-  guardianName: z.string().min(1).optional(),
-  guardianPhone: z.string().optional(),
-  batch: z.string().min(1).optional(),
+  guardianName: z.string().min(1).optional().or(emptyToUndefined),
+  guardianPhone: optionalString,
+  batch: z.string().min(1).optional().or(emptyToUndefined),
   isActive: z.boolean().optional(),
 });
 

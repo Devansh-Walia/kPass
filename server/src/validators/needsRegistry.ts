@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalUuid, emptyToUndefined } from "./helpers.js";
 
 export const createNeedSchema = z.object({
   childName: z.string().min(1),
@@ -7,12 +8,12 @@ export const createNeedSchema = z.object({
 });
 
 export const updateNeedSchema = z.object({
-  childName: z.string().min(1).optional(),
+  childName: z.string().min(1).optional().or(emptyToUndefined),
   category: z.enum(["SANITATION", "HEALTH", "SUPPLIES", "OTHER"]).optional(),
-  description: z.string().min(1).optional(),
+  description: z.string().min(1).optional().or(emptyToUndefined),
 });
 
 export const updateNeedStatusSchema = z.object({
   status: z.enum(["PENDING", "APPROVED", "FULFILLED", "REJECTED"]),
-  approvedById: z.string().uuid().optional(),
+  approvedById: optionalUuid,
 });

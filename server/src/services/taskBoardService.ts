@@ -18,7 +18,7 @@ export const taskBoardService = {
       },
     }),
 
-  createTask: (data: { title: string; description?: string; priority?: TaskPriority; dueDate?: Date; assigneeId?: string }, boardId: string, userId: string) =>
+  createTask: (data: { title: string; description?: string; status?: TaskStatus; priority?: TaskPriority; dueDate?: Date; assigneeId?: string }, boardId: string, userId: string) =>
     prisma.taskCard.create({
       data: { ...data, boardId, createdById: userId },
       include: { assignee: { select: { firstName: true, lastName: true } } },
