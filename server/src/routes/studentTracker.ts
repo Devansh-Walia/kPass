@@ -5,16 +5,18 @@ import { studentTrackerService } from "../services/studentTrackerService.js";
 import { createStudentSchema, updateStudentSchema, markAttendanceSchema } from "../validators/studentTracker.js";
 import { bulkImportRequestSchema } from "../validators/bulkImport.js";
 import { processBulkImport } from "../services/bulkImportService.js";
+import { StudentLocation } from "@prisma/client";
 
 const router = Router();
 router.use(authenticate, requireAppAccess("student-tracker"));
 
 // Students
 router.get("/students", async (req, res) => {
-  const { batch, isActive } = req.query;
+  const { batch, isActive, location } = req.query;
   const students = await studentTrackerService.listStudents({
     batch: batch as string | undefined,
     isActive: isActive !== undefined ? isActive === "true" : undefined,
+    location: location as StudentLocation | undefined,
   });
   res.json({ data: students });
 });
@@ -44,14 +46,15 @@ router.delete("/students/:id", async (req, res) => {
 
 // Report
 router.get("/report", async (req, res) => {
-  const { batch, startDate, endDate } = req.query;
+  const { batch, startDate, endDate, location } = req.query;
   if (!batch || !startDate || !endDate) {
     return res.status(400).json({ error: "batch, startDate, and endDate are required" });
   }
   const report = await studentTrackerService.getAttendanceReport(
     batch as string,
     new Date(startDate as string),
-    new Date(endDate as string)
+    new Date(endDate as string),
+    location as StudentLocation | undefined,
   );
   res.json({ data: report });
 });
@@ -64,10 +67,11 @@ router.post("/attendance", async (req, res) => {
 });
 
 router.get("/attendance", async (req, res) => {
-  const { batch, date } = req.query;
+  const { batch, date, location } = req.query;
   const attendance = await studentTrackerService.getAttendance({
     batch: batch as string | undefined,
     date: date ? new Date(date as string) : undefined,
+    location: location as StudentLocation | undefined,
   });
   res.json({ data: attendance });
 });
@@ -99,8 +103,9 @@ router.get("/import-template", (req, res) => {
         { key: "guardianName", label: "Guardian Name", type: "string", required: true },
         { key: "guardianPhone", label: "Guardian Phone", type: "string", required: false },
         { key: "batch", label: "Batch", type: "string", required: true },
+        { key: "location", label: "Location", type: "enum", required: false, enumValues: ["DIT", "MALSI"] },
       ],
-      example: { name: "Ankit Kumar", age: 12, guardianName: "Rajesh Kumar", guardianPhone: "9876543210", batch: "2025-A" },
+      example: { name: "Ankit Kumar", age: 12, guardianName: "Rajesh Kumar", guardianPhone: "9876543210", batch: "2025-A", location: "DIT" },
     },
   };
   if (!entity || !templates[entity]) {

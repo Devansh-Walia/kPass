@@ -262,6 +262,11 @@ model TaskCard {
 
 // ─── Student Tracker ──────────────────────────────────
 
+enum StudentLocation {
+  DIT
+  MALSI
+}
+
 model Student {
   id            String              @id @default(uuid())
   name          String
@@ -269,6 +274,7 @@ model Student {
   guardianName  String
   guardianPhone String?
   batch         String
+  location      StudentLocation?    @default(DIT)
   enrollmentDate DateTime
   isActive      Boolean             @default(true)
   createdById   String

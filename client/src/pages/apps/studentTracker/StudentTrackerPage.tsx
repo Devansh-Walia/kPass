@@ -7,6 +7,9 @@ import { BulkImportModal } from "../../../components/common/BulkImportModal";
 
 type Tab = "students" | "attendance" | "report";
 
+type StudentLocation = "DIT" | "MALSI";
+const STUDENT_LOCATIONS: StudentLocation[] = ["DIT", "MALSI"];
+
 interface Student {
   id: string;
   name: string;
@@ -14,6 +17,7 @@ interface Student {
   guardianName: string;
   guardianPhone: string | null;
   batch: string;
+  location: StudentLocation | null;
   enrollmentDate: string;
   isActive: boolean;
   createdBy?: { firstName: string; lastName: string };
@@ -116,13 +120,14 @@ function StudentsTab() {
   const [loading, setLoading] = useState(true);
   const [filterBatch, setFilterBatch] = useState("");
   const [filterActive, setFilterActive] = useState("");
+  const [filterLocation, setFilterLocation] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedData, setExpandedData] = useState<Student | null>(null);
 
   // Form state
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", age: "", guardianName: "", guardianPhone: "", batch: "" });
+  const [form, setForm] = useState({ name: "", age: "", guardianName: "", guardianPhone: "", batch: "", location: "", isActive: true });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -138,6 +143,7 @@ function StudentsTab() {
       const params: any = {};
       if (filterBatch) params.batch = filterBatch;
       if (filterActive) params.isActive = filterActive;
+      if (filterLocation) params.location = filterLocation;
       const data = await studentTrackerApi.getStudents(params);
       setStudents(Array.isArray(data) ? data : []);
     } catch {
@@ -149,7 +155,7 @@ function StudentsTab() {
 
   useEffect(() => {
     loadStudents();
-  }, [filterBatch, filterActive]);
+  }, [filterBatch, filterActive, filterLocation]);
 
   const batches = useMemo(() => {
     const set = new Set(students.map((s) => s.batch));
@@ -179,6 +185,8 @@ function StudentsTab() {
       guardianName: student.guardianName,
       guardianPhone: student.guardianPhone || "",
       batch: student.batch,
+      location: student.location || "",
+      isActive: student.isActive,
     });
     setShowForm(true);
     setFormError("");
@@ -187,7 +195,7 @@ function StudentsTab() {
   const cancelForm = () => {
     setShowForm(false);
     setEditingId(null);
-    setForm({ name: "", age: "", guardianName: "", guardianPhone: "", batch: "" });
+    setForm({ name: "", age: "", guardianName: "", guardianPhone: "", batch: "", location: "", isActive: true });
     setFormError("");
   };
 
@@ -200,14 +208,16 @@ function StudentsTab() {
     }
     setSubmitting(true);
     try {
-      const payload = {
+      const payload: any = {
         name: form.name.trim(),
         age: parseInt(form.age),
         guardianName: form.guardianName.trim(),
         guardianPhone: form.guardianPhone.trim() || undefined,
         batch: form.batch.trim(),
+        location: form.location || undefined,
       };
       if (editingId) {
+        payload.isActive = form.isActive;
         await studentTrackerApi.updateStudent(editingId, payload);
       } else {
         await studentTrackerApi.createStudent(payload);
@@ -239,6 +249,15 @@ function StudentsTab() {
     }
   };
 
+  const toggleStudentStatus = async (student: Student) => {
+    try {
+      await studentTrackerApi.updateStudent(student.id, { isActive: !student.isActive });
+      await loadStudents();
+    } catch {
+      // silently fail
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-4">
@@ -267,13 +286,26 @@ function StudentsTab() {
             <option value="false">Inactive</option>
           </select>
         </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Location</label>
+          <select
+            value={filterLocation}
+            onChange={(e) => setFilterLocation(e.target.value)}
+            className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+          >
+            <option value="">All Locations</option>
+            {STUDENT_LOCATIONS.map((loc) => (
+              <option key={loc} value={loc}>{loc}</option>
+            ))}
+          </select>
+        </div>
         <button
           onClick={() => {
             if (showForm) {
               cancelForm();
             } else {
               setEditingId(null);
-              setForm({ name: "", age: "", guardianName: "", guardianPhone: "", batch: "" });
+              setForm({ name: "", age: "", guardianName: "", guardianPhone: "", batch: "", location: "", isActive: true });
               setShowForm(true);
             }
           }}
@@ -323,7 +355,28 @@ function StudentsTab() {
               onChange={(e) => setForm({ ...form, batch: e.target.value })}
               className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             />
+            <select
+              value={form.location}
+              onChange={(e) => setForm({ ...form, location: e.target.value })}
+              className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+            >
+              <option value="">Select Location</option>
+              {STUDENT_LOCATIONS.map((loc) => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
           </div>
+          {editingId && (
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              Active Student
+            </label>
+          )}
           <div className="flex gap-2">
             <button
               type="submit"
@@ -353,7 +406,7 @@ function StudentsTab() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {["Name", "Age", "Guardian", "Batch", "Status", "Enrolled", ""].map((h, i) => (
+                {["Name", "Age", "Guardian", "Batch", "Location", "Status", "Enrolled", ""].map((h, i) => (
                   <th key={i} className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                     {h}
                   </th>
@@ -363,7 +416,7 @@ function StudentsTab() {
             <tbody className="divide-y divide-gray-200 bg-white">
               {students.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-sm text-gray-500">
+                  <td colSpan={8} className="px-4 py-6 text-center text-sm text-gray-500">
                     No students found.
                   </td>
                 </tr>
@@ -376,6 +429,7 @@ function StudentsTab() {
                   expandedData={expandedId === s.id ? expandedData : null}
                   onToggle={() => toggleExpand(s.id)}
                   onEdit={() => startEdit(s)}
+                  onToggleStatus={() => toggleStudentStatus(s)}
                   onDelete={isAdmin ? () => setDeleteTarget(s) : undefined}
                 />
               ))}
@@ -402,6 +456,7 @@ function StudentRow({
   expandedData,
   onToggle,
   onEdit,
+  onToggleStatus,
   onDelete,
 }: {
   student: Student;
@@ -409,6 +464,7 @@ function StudentRow({
   expandedData: Student | null;
   onToggle: () => void;
   onEdit: () => void;
+  onToggleStatus: () => void;
   onDelete?: () => void;
 }) {
   return (
@@ -421,10 +477,15 @@ function StudentRow({
           {student.guardianPhone && <span className="text-gray-400 ml-1">({student.guardianPhone})</span>}
         </td>
         <td className="px-4 py-3 text-sm text-gray-600">{student.batch}</td>
-        <td className="px-4 py-3 text-sm">
-          <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${student.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
+        <td className="px-4 py-3 text-sm text-gray-600">{student.location || "—"}</td>
+        <td className="px-4 py-3 text-sm" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={onToggleStatus}
+            title={`Click to mark ${student.isActive ? "inactive" : "active"}`}
+            className={`inline-block rounded px-2 py-0.5 text-xs font-medium cursor-pointer transition-colors ${student.isActive ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+          >
             {student.isActive ? "Active" : "Inactive"}
-          </span>
+          </button>
         </td>
         <td className="px-4 py-3 text-sm text-gray-600">
           {new Date(student.enrollmentDate).toLocaleDateString()}
@@ -450,7 +511,7 @@ function StudentRow({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={7} className="bg-gray-50 px-6 py-4">
+          <td colSpan={8} className="bg-gray-50 px-6 py-4">
             {!expandedData ? (
               <p className="text-sm text-gray-500">Loading details...</p>
             ) : (
@@ -485,6 +546,7 @@ function AttendanceTab() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(false);
   const [batch, setBatch] = useState("");
+  const [location, setLocation] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [records, setRecords] = useState<Record<string, "PRESENT" | "ABSENT" | "LATE">>({});
   const [submitting, setSubmitting] = useState(false);
@@ -494,8 +556,10 @@ function AttendanceTab() {
   // Load all students to get batch list
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   useEffect(() => {
-    studentTrackerApi.getStudents({ isActive: "true" }).then(setAllStudents).catch(() => {});
-  }, []);
+    const params: any = { isActive: "true" };
+    if (location) params.location = location;
+    studentTrackerApi.getStudents(params).then(setAllStudents).catch(() => {});
+  }, [location]);
 
   const batches = useMemo(() => {
     const set = new Set(allStudents.map((s) => s.batch));
@@ -507,9 +571,13 @@ function AttendanceTab() {
     setLoading(true);
     setMessage("");
     try {
+      const studentParams: any = { batch, isActive: "true" };
+      if (location) studentParams.location = location;
+      const attendanceParams: any = { batch, date };
+      if (location) attendanceParams.location = location;
       const [studentData, attendanceData] = await Promise.all([
-        studentTrackerApi.getStudents({ batch, isActive: "true" }),
-        studentTrackerApi.getAttendance({ batch, date }),
+        studentTrackerApi.getStudents(studentParams),
+        studentTrackerApi.getAttendance(attendanceParams),
       ]);
       setStudents(Array.isArray(studentData) ? studentData : []);
       setExistingAttendance(Array.isArray(attendanceData) ? attendanceData : []);
@@ -535,7 +603,7 @@ function AttendanceTab() {
     if (batch && date) {
       loadBatchStudents();
     }
-  }, [batch, date]);
+  }, [batch, date, location]);
 
   const setStatus = (studentId: string, status: "PRESENT" | "ABSENT" | "LATE") => {
     setRecords((prev) => ({ ...prev, [studentId]: status }));
@@ -594,6 +662,19 @@ function AttendanceTab() {
             onChange={(e) => setDate(e.target.value)}
             className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
           />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Location</label>
+          <select
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+          >
+            <option value="">All Locations</option>
+            {STUDENT_LOCATIONS.map((loc) => (
+              <option key={loc} value={loc}>{loc}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -680,6 +761,7 @@ function AttendanceTab() {
 function ReportTab() {
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [batch, setBatch] = useState("");
+  const [location, setLocation] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [report, setReport] = useState<Report | null>(null);
@@ -704,7 +786,9 @@ function ReportTab() {
     setLoading(true);
     setReport(null);
     try {
-      const data = await studentTrackerApi.getReport(batch, startDate, endDate);
+      const params: any = { batch, startDate, endDate };
+      if (location) params.location = location;
+      const data = await studentTrackerApi.getReport(params.batch, params.startDate, params.endDate, params.location);
       setReport(data);
     } catch (err: any) {
       setError(err.response?.data?.error || "Failed to generate report.");
@@ -726,6 +810,19 @@ function ReportTab() {
             <option value="">Select Batch</option>
             {batches.map((b) => (
               <option key={b} value={b}>{b}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Location</label>
+          <select
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+          >
+            <option value="">All Locations</option>
+            {STUDENT_LOCATIONS.map((loc) => (
+              <option key={loc} value={loc}>{loc}</option>
             ))}
           </select>
         </div>

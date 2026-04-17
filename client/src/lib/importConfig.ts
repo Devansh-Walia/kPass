@@ -133,8 +133,9 @@ export const IMPORT_CONFIGS: Record<string, ImportConfig> = {
       { key: "guardianName", label: "Guardian Name", type: "string", required: true },
       { key: "guardianPhone", label: "Guardian Phone", type: "string", required: false },
       { key: "batch", label: "Batch", type: "string", required: true },
+      { key: "location", label: "Location", type: "enum", required: false, enumValues: ["DIT", "MALSI"] },
     ],
-    example: { name: "Ankit Kumar", age: 12, guardianName: "Rajesh Kumar", guardianPhone: "9876543210", batch: "2025-A" },
+    example: { name: "Ankit Kumar", age: 12, guardianName: "Rajesh Kumar", guardianPhone: "9876543210", batch: "2025-A", location: "DIT" },
   },
 
   // ─── Needs Registry ───

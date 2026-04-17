@@ -1,12 +1,15 @@
 import { z } from "zod";
 import { optionalString, emptyToUndefined } from "./helpers.js";
 
+export const studentLocationEnum = z.enum(["DIT", "MALSI"]);
+
 export const createStudentSchema = z.object({
   name: z.string().min(1),
   age: z.number().int().positive(),
   guardianName: z.string().min(1),
   guardianPhone: optionalString,
   batch: z.string().min(1),
+  location: studentLocationEnum.optional(),
 });
 
 export const updateStudentSchema = z.object({
@@ -15,6 +18,7 @@ export const updateStudentSchema = z.object({
   guardianName: z.string().min(1).optional().or(emptyToUndefined),
   guardianPhone: optionalString,
   batch: z.string().min(1).optional().or(emptyToUndefined),
+  location: studentLocationEnum.optional().nullable(),
   isActive: z.boolean().optional(),
 });
 

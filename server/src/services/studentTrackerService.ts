@@ -1,11 +1,12 @@
 import { prisma } from "../lib/prisma.js";
-import { AttendanceStatus } from "@prisma/client";
+import { AttendanceStatus, StudentLocation } from "@prisma/client";
 
 export const studentTrackerService = {
-  listStudents: (filters?: { batch?: string; isActive?: boolean }) => {
+  listStudents: (filters?: { batch?: string; isActive?: boolean; location?: StudentLocation }) => {
     const where: any = {};
     if (filters?.batch) where.batch = filters.batch;
     if (filters?.isActive !== undefined) where.isActive = filters.isActive;
+    if (filters?.location) where.location = filters.location;
     return prisma.student.findMany({
       where,
       include: { createdBy: { select: { firstName: true, lastName: true } } },
@@ -13,7 +14,7 @@ export const studentTrackerService = {
     });
   },
 
-  createStudent: (data: { name: string; age: number; guardianName: string; guardianPhone?: string; batch: string }, userId: string) =>
+  createStudent: (data: { name: string; age: number; guardianName: string; guardianPhone?: string; batch: string; location?: StudentLocation }, userId: string) =>
     prisma.student.create({
       data: { ...data, enrollmentDate: new Date(), createdById: userId },
     }),
@@ -46,25 +47,31 @@ export const studentTrackerService = {
     return results;
   },
 
-  getAttendance: (filters: { batch?: string; date?: Date }) => {
+  getAttendance: (filters: { batch?: string; date?: Date; location?: StudentLocation }) => {
     const where: any = {};
     if (filters.date) where.date = filters.date;
-    if (filters.batch) where.student = { batch: filters.batch };
+    const studentWhere: any = {};
+    if (filters.batch) studentWhere.batch = filters.batch;
+    if (filters.location) studentWhere.location = filters.location;
+    if (Object.keys(studentWhere).length > 0) where.student = studentWhere;
     return prisma.studentAttendance.findMany({
       where,
       include: {
-        student: { select: { id: true, name: true, batch: true } },
+        student: { select: { id: true, name: true, batch: true, location: true } },
         markedBy: { select: { firstName: true, lastName: true } },
       },
       orderBy: { date: "desc" },
     });
   },
 
-  getAttendanceReport: async (batch: string, startDate: Date, endDate: Date) => {
+  getAttendanceReport: async (batch: string, startDate: Date, endDate: Date, location?: StudentLocation) => {
+    const studentWhere: any = { batch };
+    if (location) studentWhere.location = location;
+
     const records = await prisma.studentAttendance.findMany({
       where: {
         date: { gte: startDate, lte: endDate },
-        student: { batch },
+        student: studentWhere,
       },
       include: { student: { select: { id: true, name: true } } },
     });
